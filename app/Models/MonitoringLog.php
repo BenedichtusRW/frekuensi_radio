@@ -3,10 +3,14 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class MonitoringLog extends Model
 {
+    protected $table = 'monitoring_import_logs';
+
     protected $fillable = [
+        'monitoring_id',
         'source_file',
         'sheet_name',
         'source_row',
@@ -46,4 +50,9 @@ class MonitoringLog extends Model
         'is_archived' => 'boolean',
         'archived_at' => 'datetime',
     ];
+
+    public function monitoring(): BelongsTo
+    {
+        return $this->belongsTo(Monitoring::class);
+    }
 }

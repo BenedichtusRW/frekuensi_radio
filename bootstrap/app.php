@@ -11,7 +11,22 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        // Global middleware - runs on every request
+        $middleware->use([
+            \App\Http\Middleware\SecurityHeadersMiddleware::class,
+            \App\Http\Middleware\TriggerCleanupMiddleware::class,
+        ]);
+
+        $middleware->web(append: [
+            \Illuminate\Session\Middleware\AuthenticateSession::class,
+        ]);
+
+        $middleware->alias([
+            'no-cache' => \App\Http\Middleware\PreventBackHistory::class,
+            'check-profile' => \App\Http\Middleware\EnsureProfileIsComplete::class,
+            'role' => \App\Http\Middleware\CheckRole::class,
+            'check-active' => \App\Http\Middleware\CheckAccountStatus::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

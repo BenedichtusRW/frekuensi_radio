@@ -50,11 +50,27 @@
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Negara <span class="text-danger">*</span></label>
-                    <input type="text" name="kode_negara" class="form-control" value="{{ old('kode_negara', $monitoring->kode_negara ?? '') }}" placeholder="Contoh: INDONESIA (INS)">
+                    @php
+                        $selectedNegara = old('kode_negara', $monitoring->kode_negara ?? '');
+                    @endphp
+                    <select name="kode_negara" class="form-select max-h-40" required>
+                        <option value="" disabled hidden {{ $selectedNegara === '' ? 'selected' : '' }}></option>
+                        @foreach (($dropdownOptions['kode_negara'] ?? ['INDONESIA (INS)']) as $negara)
+                            <option value="{{ $negara }}" {{ $selectedNegara === $negara ? 'selected' : '' }}>{{ $negara }}</option>
+                        @endforeach
+                    </select>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Stasiun Monitor <span class="text-danger">*</span></label>
-                    <input type="text" name="stasiun_monitor" class="form-control" value="{{ old('stasiun_monitor', $monitoring->stasiun_monitor ?? '') }}">
+                    @php
+                        $selectedStasiun = old('stasiun_monitor', $monitoring->stasiun_monitor ?? '');
+                    @endphp
+                    <select name="stasiun_monitor" class="form-select max-h-40" required>
+                        <option value="" disabled hidden {{ $selectedStasiun === '' ? 'selected' : '' }}></option>
+                        @foreach (($dropdownOptions['stasiun_monitor'] ?? ['MSHF LAMPUNG']) as $stasiun)
+                            <option value="{{ $stasiun }}" {{ $selectedStasiun === $stasiun ? 'selected' : '' }}>{{ $stasiun }}</option>
+                        @endforeach
+                    </select>
                 </div>
 
                 <div class="col-md-4">
@@ -241,7 +257,7 @@
             </div>
 
             <div class="d-flex flex-wrap gap-2 mt-4 justify-content-end">
-                <a href="{{ route('monitoring.index') }}" class="btn btn-outline-secondary">Kembali</a>
+                <a href="{{ route('monitoring.index') }}" wire:navigate class="btn btn-outline-secondary">Kembali</a>
                 <button type="submit" class="btn btn-primary">{{ isset($monitoring) ? 'Update' : 'Simpan' }}</button>
             </div>
         </form>

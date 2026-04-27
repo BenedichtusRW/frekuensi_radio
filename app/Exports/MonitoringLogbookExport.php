@@ -65,32 +65,37 @@ class MonitoringLogbookExport implements FromArray, ShouldAutoSize, WithEvents
 
     private function dataRows(): array
     {
+        $f = function($value) {
+            $trimmed = trim((string)$value);
+            return ($trimmed === '') ? '-' : $value;
+        };
+
         return $this->rows
-            ->map(function ($item) {
+            ->map(function ($item) use ($f) {
                 return [
-                    $item->kode_negara,
-                    $item->stasiun_monitor,
-                    $item->frekuensi_khz,
-                    $item->tanggal,
-                    $item->bulan,
-                    $item->jam_mulai,
-                    $item->jam_akhir,
-                    $item->kuat_medan_dbuvm,
-                    $item->identifikasi,
-                    $item->administrasi_termonitor,
-                    $item->kelas_stasiun,
-                    $item->lebar_band,
-                    $item->kelas_emisi,
-                    $item->longitude_derajat,
-                    $item->longitude_arah,
-                    $item->longitude_menit,
-                    $item->latitude_derajat,
-                    $item->latitude_arah,
-                    $item->latitude_menit,
-                    $item->north_bearing,
-                    $item->akurasi,
-                    $item->tidak_sesuai_rr,
-                    $item->informasi_tambahan,
+                    $f($item->kode_negara),
+                    $f($item->stasiun_monitor),
+                    $item->frekuensi_khz !== null ? number_format((float) $item->frekuensi_khz, 3, '.', '') : '-',
+                    $f($item->tanggal),
+                    $f($item->bulan),
+                    $f($item->jam_mulai),
+                    $f($item->jam_akhir),
+                    $item->kuat_medan_dbuvm !== null ? (float)$item->kuat_medan_dbuvm : '-',
+                    $f($item->identifikasi),
+                    $f($item->administrasi_termonitor),
+                    $f($item->kelas_stasiun),
+                    $f($item->lebar_band),
+                    $f($item->kelas_emisi),
+                    $f($item->longitude_derajat),
+                    $f($item->longitude_arah),
+                    $f($item->longitude_menit),
+                    $f($item->latitude_derajat),
+                    $f($item->latitude_arah),
+                    $f($item->latitude_menit),
+                    $f($item->north_bearing),
+                    $f($item->akurasi),
+                    $f($item->tidak_sesuai_rr),
+                    $f($item->informasi_tambahan),
                 ];
             })
             ->values()

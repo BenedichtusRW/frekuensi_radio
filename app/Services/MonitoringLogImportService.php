@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Monitoring;
 use App\Models\MonitoringLog;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 
@@ -87,12 +88,41 @@ class MonitoringLogImportService
                 $record,
             );
 
+            // Automatically promote classified import rows into final monitorings
+            // and store back-reference for end-to-end traceability.
+            $this->syncFinalMonitoring($model);
+
             if ($model->wasRecentlyCreated) {
                 $inserted++;
             }
         }
 
         return $inserted;
+    }
+
+    public function backfillMonitoringLinks(?string $sourceFile = null): int
+    {
+        $baseQuery = MonitoringLog::query()
+            ->where('monitoring_type', '!=', 'other')
+            ->when($sourceFile, fn ($query) => $query->where('source_file', $sourceFile));
+
+        $beforeLinked = (clone $baseQuery)
+            ->whereNotNull('monitoring_id')
+            ->count();
+
+        (clone $baseQuery)
+            ->orderBy('id')
+            ->chunkById(200, function ($logs) {
+                foreach ($logs as $log) {
+                    $this->syncFinalMonitoring($log);
+                }
+            });
+
+        $afterLinked = (clone $baseQuery)
+            ->whereNotNull('monitoring_id')
+            ->count();
+
+        return max(0, $afterLinked - $beforeLinked);
     }
 
     private function clean(mixed $value): ?string
@@ -229,5 +259,80 @@ class MonitoringLogImportService
         }
 
         return $nearestType;
+    }
+
+    private function syncFinalMonitoring(MonitoringLog $log): void
+    {
+        $kategori = $this->mapMonitoringTypeToKategori($log->monitoring_type);
+
+        // Rows that still need manual verification should not be promoted.
+        if ($kategori === null) {
+            if ($log->monitoring_id !== null) {
+                $log->monitoring_id = null;
+                $log->save();
+            }
+
+            return;
+        }
+
+        $tahun = (int) ($log->created_at?->year ?? now()->year);
+
+        $lookup = [
+            'kategori' => $kategori,
+            'kode_negara' => $log->kode_negara,
+            'stasiun_monitor' => $log->stasiun_monitor,
+            'frekuensi_khz' => $log->frekuensi_khz,
+            'tanggal' => $log->tanggal,
+            'bulan' => $log->bulan,
+            'tahun' => $tahun,
+            'jam_mulai' => $log->jam_mulai,
+            'identifikasi' => $log->identifikasi,
+        ];
+
+        $payload = [
+            'kategori' => $kategori,
+            'kode_negara' => $log->kode_negara,
+            'stasiun_monitor' => $log->stasiun_monitor,
+            'frekuensi_khz' => $log->frekuensi_khz,
+            'tanggal' => $log->tanggal,
+            'bulan' => $log->bulan,
+            'tahun' => $tahun,
+            'jam_mulai' => $log->jam_mulai,
+            'jam_akhir' => $log->jam_akhir,
+            'kuat_medan_dbuvm' => $log->kuat_medan_dbuvm,
+            'identifikasi' => $log->identifikasi,
+            'administrasi_termonitor' => $log->administrasi_termonitor,
+            'kelas_stasiun' => $log->kelas_stasiun,
+            'lebar_band' => $log->lebar_band,
+            'kelas_emisi' => $log->kelas_emisi,
+            'perkiraan_lokasi_sumber_pancaran' => $log->perkiraan_lokasi_sumber_pancaran,
+            'longitude_derajat' => $log->longitude_derajat,
+            'longitude_arah' => $log->longitude_arah,
+            'longitude_menit' => $log->longitude_menit,
+            'latitude_derajat' => $log->latitude_derajat,
+            'latitude_arah' => $log->latitude_arah,
+            'latitude_menit' => $log->latitude_menit,
+            'north_bearing' => $log->north_bearing,
+            'akurasi' => $log->akurasi,
+            'tidak_sesuai_rr' => $log->tidak_sesuai_rr,
+            'informasi_tambahan' => $log->informasi_tambahan,
+        ];
+
+        $monitoring = Monitoring::updateOrCreate($lookup, $payload);
+
+        if ((int) ($log->monitoring_id ?? 0) !== (int) $monitoring->id) {
+            $log->monitoring_id = $monitoring->id;
+            $log->save();
+        }
+    }
+
+    private function mapMonitoringTypeToKategori(?string $monitoringType): ?string
+    {
+        return match ($monitoringType) {
+            'mf' => 'MF',
+            'rutin' => 'HF Rutin',
+            'nelayan' => 'HF Nelayan',
+            default => null,
+        };
     }
 }
