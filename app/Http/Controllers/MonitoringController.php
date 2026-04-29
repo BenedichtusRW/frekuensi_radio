@@ -29,23 +29,26 @@ class MonitoringController extends Controller
         $user = auth()->user();
         $isSuperAdmin = $user->role === 'super_admin';
         
-        // --- NEW: CLEAN URL LOGIC (SESSION-BASED FILTER) ---
+        // --- IMPROVED: GLOBAL SESSION-BASED FILTER ---
         if ($isSuperAdmin) {
-            // If the request has 'user_id' (from the dropdown), save to session and redirect to clean URL
+            // Priority 1: Request (user sets a new filter)
             if ($request->has('user_id')) {
                 $val = $request->query('user_id');
                 if ($val === "" || $val === "all") {
-                    session()->forget('dashboard_filter_user_id');
+                    session()->forget('global_petugas_filter_id');
                 } else {
-                    session(['dashboard_filter_user_id' => $val]);
+                    session(['global_petugas_filter_id' => $val]);
                 }
-                return redirect()->route('dashboard'); // Redirect to clean URL without query params
+                
+                // If not an AJAX/Livewire request, redirect to clean URL
+                if (!$request->ajax() && !$request->headers->has('X-Livewire')) {
+                    return redirect()->route('dashboard');
+                }
             }
             
-            // Read the filtered ID from session
-            $userId = session('dashboard_filter_user_id');
+            // Priority 2: Session (read existing filter)
+            $userId = session('global_petugas_filter_id');
         } else {
-            // Regular admins are always forced to their own ID, ignore session/request
             $userId = $user->id;
         }
         // ----------------------------------------------------
@@ -102,7 +105,7 @@ class MonitoringController extends Controller
         ];
 
         // 3. CACHE BAR CHART 7 HARI (Stacked by Category)
-        $barChart = Cache::remember('dashboard_barchart_stats_v2' . $cacheSuffix, $cacheDuration, function () use ($userId) {
+        $barChart = Cache::remember('dashboard_bar_chart' . $cacheSuffix, $cacheDuration, function () use ($userId) {
             $startDate = now()->subDays(6)->startOfDay();
             $endDate   = now()->endOfDay();
 
@@ -144,7 +147,7 @@ class MonitoringController extends Controller
         });
 
         // 4. CACHE MONTHLY CHART (Stacked by Category)
-        $monthlyChart = Cache::remember('dashboard_monthly_stats_v2' . $cacheSuffix, $cacheDuration, function () use ($userId) {
+        $monthlyChart = Cache::remember('dashboard_monthly_chart' . $cacheSuffix, $cacheDuration, function () use ($userId) {
             $currentYear = now()->year;
 
             $rows = Monitoring::query()
@@ -181,10 +184,11 @@ class MonitoringController extends Controller
 
         // 5. RECENT MONITORING DATA (5 terakhir) - Tanpa cache agar benar-benar real-time saat halaman di-refresh
         $recentMonitoring = Monitoring::query()
+            ->with('user:id,name') // Eager load petugas
             ->when($userId, fn($q) => $q->where('user_id', $userId))
             ->orderBy('created_at', 'DESC')
             ->limit(5)
-            ->get(['id', 'kategori', 'tahun', 'bulan', 'tanggal', 'created_at']);
+            ->get(['id', 'user_id', 'kategori', 'tahun', 'bulan', 'tanggal', 'created_at']);
 
         // Fetch users for Super Admin filter dropdown
         $users = [];
@@ -322,7 +326,17 @@ class MonitoringController extends Controller
         $status = $request->enabled ? 'Mengaktifkan' : 'Menonaktifkan';
         $this->logActivity($request, 'toggle_2fa', $status . ' Autentikasi 2 Faktor');
 
-        return response()->json(['success' => true]);
+        $response = response()->json(['success' => true]);
+        
+        // Jika dimatikan, hapus cookie preferensi login agar kembali ke email/password
+        if (!$request->enabled) {
+            $response->withCookie(cookie()->forget('login_preference'));
+        } else {
+            // Jika dinyalakan, tanamkan cookie 2fa
+            $response->withCookie(cookie()->forever('login_preference', '2fa'));
+        }
+
+        return $response;
     }
 
     /**
@@ -360,13 +374,24 @@ class MonitoringController extends Controller
             'name' => ['required', 'string', 'max:255', 'regex:/^(?!Admin\s*\d*$).+/i'],
             'email' => ['required', 'email', \Illuminate\Validation\Rule::unique('users')->ignore($user->id)],
             'current_password' => 'required',
-            'new_password' => 'nullable|min:8|confirmed',
+            'new_password' => [
+                'nullable',
+                'confirmed',
+                \Illuminate\Validation\Rules\Password::min(8)
+                    ->mixedCase()
+                    ->numbers()
+                    ->uncompromised(),
+                new \App\Rules\StrongPassword
+            ],
             'profile_photo' => 'nullable|image|mimes:jpeg,png,jpg|max:1024',
         ], [
             'name.regex' => 'Mohon gunakan nama asli Anda.',
             'email.unique' => 'Email sudah digunakan oleh akun lain.',
             'new_password.min' => 'Password baru minimal 8 karakter.',
             'new_password.confirmed' => 'Konfirmasi password tidak cocok.',
+            'new_password.uncompromised' => 'Kata sandi ini terdeteksi pernah bocor di internet. Silakan gunakan kata sandi lain demi keamanan Anda.',
+            'new_password.mixed' => 'Password baru harus mengandung campuran huruf besar dan kecil.',
+            'new_password.numbers' => 'Password baru harus mengandung angka.',
             'profile_photo.image' => 'File harus berupa gambar.',
             'profile_photo.max' => 'Ukuran foto maksimal 1MB.',
         ]);
@@ -424,7 +449,27 @@ class MonitoringController extends Controller
     {
         $this->logActivity($request, 'visit_laporan', 'Membuka halaman Daftar Laporan');
 
+        $isSuperAdmin = auth()->user()->role === 'super_admin';
+        
+        // --- GLOBAL FILTER SYNC ---
+        if ($isSuperAdmin) {
+            if ($request->has('user_id')) {
+                $val = $request->query('user_id');
+                if ($val === "" || $val === "all") {
+                    session()->forget('global_petugas_filter_id');
+                } else {
+                    session(['global_petugas_filter_id' => $val]);
+                }
+            }
+        }
+
         $filters = $this->extractMonitoringFilters($request);
+        
+        // If no user_id in request, try session for Super Admin
+        if ($isSuperAdmin && empty($filters['user_id'])) {
+            $filters['user_id'] = session('global_petugas_filter_id');
+        }
+
         $editMonitoring = null;
         $editTableNumber = $this->toNullableInt((string) $request->query('no', ''));
 
@@ -435,8 +480,13 @@ class MonitoringController extends Controller
             }
         }
 
+        $perPage = $this->toNullableInt((string) $request->query('per_page', '10')) ?? 10;
+        // Safety cap: Maksimal 50 data per halaman agar browser tidak berat (karena kolom sangat banyak)
+        if ($perPage > 50) $perPage = 50;
+        if ($perPage < 1) $perPage = 10;
+
         $monitorings = $this->monitoringFilteredQuery($filters)
-            ->paginate(10)
+            ->paginate($perPage)
             ->withQueryString();
 
         // AJAX Optimization: Return ONLY the table partial, not the full layout
@@ -650,10 +700,25 @@ class MonitoringController extends Controller
      */
     private function clearDashboardCache(): void
     {
-        Cache::forget('dashboard_summary_stats');
-        Cache::forget('dashboard_barchart_stats_v2');
-        Cache::forget('dashboard_monthly_stats_v2');
-        Cache::forget('dashboard_recent_monitoring');
+        $baseKeys = [
+            'dashboard_summary_stats',
+            'dashboard_pie_chart',
+            'dashboard_bar_chart',
+            'dashboard_monthly_chart',
+            'dashboard_recent_monitoring'
+        ];
+
+        foreach ($baseKeys as $key) {
+            // Clear current user cache
+            Cache::forget($key . "_user_" . auth()->id());
+            // Clear "All" cache
+            Cache::forget($key . "_all");
+            // Clear the legacy non-suffixed keys
+            Cache::forget($key);
+            
+            // If Super Admin is making changes, we might need to clear the filtered user's cache too.
+            // But since we clear "_all", the main dashboard will be refreshed anyway.
+        }
     }
 
     public function edit(Request $request, int $id)
@@ -880,14 +945,16 @@ class MonitoringController extends Controller
 
     private function buildDropdownOptions(): array
     {
-        $masterData = \App\Models\MasterData::where('is_active', true)->get()->groupBy('category');
+        return Cache::remember('laporan_dropdown_options', now()->addHours(24), function() {
+            $masterData = \App\Models\MasterData::where('is_active', true)->get()->groupBy('category');
 
-        return [
-            'kelas_stasiun' => $masterData->has('kelas_stasiun') ? $masterData['kelas_stasiun']->pluck('value')->toArray() : ['AL', 'AM', 'AT', 'BC', 'BT', 'FA', 'FB', 'FC', 'FD', 'FG', 'FL', 'FP', 'FX', 'LR', 'MA', 'ML', 'MO', 'MR', 'MS', 'NL', 'NR', 'OD', 'OE', 'PL', 'RM', 'RN', 'SA', 'SM', 'SS', 'TC', 'UV', 'UW'],
-            'stasiun_monitor' => $masterData->has('stasiun_monitor') ? $masterData['stasiun_monitor']->pluck('value')->toArray() : ['MSHF LAMPUNG'],
-            'administrasi_termonitor' => $masterData->has('administrasi_termonitor') ? $masterData['administrasi_termonitor']->pluck('value')->toArray() : ['INS'],
-            'kode_negara' => $masterData->has('kode_negara') ? $masterData['kode_negara']->pluck('value')->toArray() : ['INDONESIA (INS)']
-        ];
+            return [
+                'kelas_stasiun' => $masterData->has('kelas_stasiun') ? $masterData['kelas_stasiun']->pluck('value')->toArray() : ['AL', 'AM', 'AT', 'BC', 'BT', 'FA', 'FB', 'FC', 'FD', 'FG', 'FL', 'FP', 'FX', 'LR', 'MA', 'ML', 'MO', 'MR', 'MS', 'NL', 'NR', 'OD', 'OE', 'PL', 'RM', 'RN', 'SA', 'SM', 'SS', 'TC', 'UV', 'UW'],
+                'stasiun_monitor' => $masterData->has('stasiun_monitor') ? $masterData['stasiun_monitor']->pluck('value')->toArray() : ['MSHF LAMPUNG'],
+                'administrasi_termonitor' => $masterData->has('administrasi_termonitor') ? $masterData['administrasi_termonitor']->pluck('value')->toArray() : ['INS'],
+                'kode_negara' => $masterData->has('kode_negara') ? $masterData['kode_negara']->pluck('value')->toArray() : ['INDONESIA (INS)']
+            ];
+        });
     }
 
     private function getDistinctMonitoringValues(string $column, array $fallback): array

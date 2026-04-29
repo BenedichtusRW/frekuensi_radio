@@ -31,15 +31,17 @@
             align-items: center;
             justify-content: center;
             margin: 0;
-            overflow: hidden;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 2rem 1rem;
         }
 
         .reset-card {
             background: #fff;
             border-radius: 2rem;
-            padding: 3rem;
+            padding: 2.5rem 2rem;
             width: 100%;
-            max-width: 440px;
+            max-width: 420px;
             box-shadow: 0 20px 25px -5px rgba(0,0,0,0.05);
             border: 1px solid #f1f5f9;
             position: relative;
@@ -79,16 +81,16 @@
             margin-bottom: 0.5rem; margin-left: 0.25rem;
         }
 
-        .input-group-modern { position: relative; margin-bottom: 1.5rem; }
+        .input-group-modern { position: relative; margin-bottom: 1.25rem; }
         .input-group-modern .icon {
             position: absolute; left: 1.25rem; top: 50%;
             transform: translateY(-50%); color: var(--balmon-slate);
             z-index: 10; pointer-events: none;
         }
         .input-group-modern .form-control {
-            padding: 0.875rem 3.25rem 0.875rem 3.25rem;
+            padding: 0.75rem 3.25rem !important;
             border-radius: 1rem; border: 1px solid #e2e8f0;
-            font-weight: 600; font-size: 0.95rem; color: var(--balmon-navy);
+            font-weight: 600; font-size: 0.95rem !important; color: var(--balmon-navy);
             transition: all 0.3s ease;
         }
         .input-group-modern .form-control:focus {
@@ -136,10 +138,15 @@
         }
 
         .error-alert {
-            background-color: #fef2f2; border: 1px solid #fee2e2;
-            color: #b91c1c; padding: 1rem; border-radius: 1rem;
-            font-size: 0.875rem; font-weight: 600; margin-bottom: 1.5rem;
-            display: flex; align-items: center; gap: 0.75rem;
+            color: #dc2626;
+            font-size: 0.78rem; font-weight: 500; margin-bottom: 0.75rem;
+            display: flex; align-items: center; justify-content: flex-start; gap: 0.5rem;
+            text-align: left;
+            padding: 0 0.25rem;
+        }
+        .error-alert svg {
+            flex-shrink: 0;
+            width: 16px; height: 16px;
         }
 
         .decoration-circle {
@@ -155,10 +162,10 @@
             font-size: 0.85rem; color: var(--balmon-slate);
         }
         .reset-footer a {
-            color: var(--balmon-blue); text-decoration: none; font-weight: 700;
-            transition: color 0.2s ease;
+            color: var(--balmon-slate); text-decoration: none; font-weight: 600;
+            transition: all 0.2s ease;
         }
-        .reset-footer a:hover { color: #1d4ed8; text-decoration: underline; }
+        .reset-footer a:hover { color: var(--balmon-navy); text-decoration: underline; }
     </style>
 </head>
 <body>
@@ -197,7 +204,7 @@
 
             <div class="form-group mb-3">
                 <label class="form-label">Kata Sandi Baru</label>
-                <div class="input-group-modern">
+                <div class="input-group-modern mb-1">
                     <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                     <input type="password" name="password" id="password" class="form-control" placeholder="Minimal 8 karakter" required autofocus>
                     <button type="button" class="toggle-password" onclick="togglePassword('password', this)">
@@ -205,6 +212,7 @@
                         <svg class="eye-closed d-none" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.52 13.52 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
                     </button>
                 </div>
+                <div class="text-slate-500 mb-2" style="font-size: 0.75rem;">Min. 8 karakter, huruf besar & angka. (Cth: BalmonLampung24)</div>
             </div>
 
             <div class="form-group mb-3">

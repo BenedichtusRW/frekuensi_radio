@@ -3,8 +3,12 @@
     <div class="card-header bg-white py-2 px-3 border-bottom border-slate-100 d-flex align-items-center justify-content-between gap-2">
         <div class="d-flex align-items-center gap-1">
             <span class="fw-bold text-slate-500" style="font-size: 0.65rem;">ENTRIES</span>
-            <select class="form-select form-select-sm border-slate-200" style="width: 55px; font-size: 0.75rem; padding: 0.1rem 0.3rem;" disabled>
-                <option selected>10</option>
+            <select class="form-select form-select-sm border-slate-200" 
+                style="width: 65px; font-size: 0.75rem; padding: 0.1rem 0.3rem;" 
+                onchange="window.changePerPage(this.value)">
+                <option value="10" {{ request('per_page') == 10 ? 'selected' : '' }}>10</option>
+                <option value="25" {{ request('per_page') == 25 ? 'selected' : '' }}>25</option>
+                <option value="50" {{ request('per_page') == 50 ? 'selected' : '' }}>50</option>
             </select>
 
             {{-- Tombol Hapus Semua Data - Resized & Relocated --}}
@@ -526,12 +530,61 @@
     };
 
     window.confirmDeleteAll = function() {
-        window.confirmSistem('PERINGATAN KRITIS', 'Anda akan menghapus SELURUH data (Total sesuai filter saat ini), bukan hanya yang tercentang di layar. Tindakan ini tidak dapat dibatalkan! Lanjutkan?', function() {
-            window.confirmSistem('Konfirmasi Terakhir', 'Hapus SEMUA data di filter ini sekarang?', function() {
+        window.confirmSistem('PERINGATAN KRITIS', 'Anda akan menghapus SELURUH data sesuai filter saat ini. Lanjutkan?', function() {
+            window.confirmSistem('Konfirmasi Terakhir', 'Hapus SEMUA data sekarang?', async function() {
                 const form = document.getElementById('deleteAllMonitoringForm');
-                if(form) form.submit();
+                if(!form) return;
+
+                const url = form.getAttribute('action');
+                const token = document.querySelector('meta[name=\"csrf-token\"]').getAttribute('content');
+
+                try {
+                    const response = await fetch(url, {
+                        method: 'DELETE',
+                        headers: {
+                            'X-CSRF-TOKEN': token,
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'Accept': 'application/json'
+                        }
+                    });
+
+                    if (response.ok) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Terhapus!',
+                            text: 'Seluruh data berhasil dibersihkan.',
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                        window.refreshLaporanTable();
+                    }
+                } catch (error) {
+                    console.error('Delete all error:', error);
+                }
             });
         });
+    };
+
+    window.changePerPage = function(value) {
+        // Update hidden input di form filter supaya tetap sinkron saat refresh/submit
+        const hiddenInput = document.querySelector('#laporanFilterForm input[name="per_page"]');
+        if (hiddenInput) {
+            hiddenInput.value = value;
+        }
+
+        const url = new URL(window.location.href);
+        url.searchParams.set('per_page', value);
+        url.searchParams.set('page', 1); // Reset ke halaman 1 jika ganti jumlah entri
+        
+        // Paksa URL tetap bersih di /laporan (Stealth Mode)
+        window.history.replaceState({}, '', window.location.pathname);
+        
+        // Refresh tabel
+        if (typeof window.refreshLaporanTable === 'function') {
+            window.refreshLaporanTable();
+        } else {
+            window.location.reload();
+        }
     };
 })();
 </script>

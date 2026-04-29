@@ -19,6 +19,7 @@ trait LogsActivity
         $allowedActions = [
             'add_data', 'edit_data', 'delete_data', 'bulk_delete', 'delete_all', 'export_xlsx',
             'add_user', 'edit_user', 'delete_user', 'send_reset_link',
+            'login_success', 'logout',
             'failed_login', 'failed_2fa', 'brute_force_detected', 'suspicious_access', 'unauthorized_access',
             'database_backup', 'restore_sql'
         ];

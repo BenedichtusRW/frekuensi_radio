@@ -53,9 +53,19 @@
         .password-toggle { position: absolute; right: 1.25rem; top: 50%; transform: translateY(-50%); background: none; border: none; color: #94a3b8; cursor: pointer; padding: 0; display: flex; align-items: center; z-index: 10; transition: color 0.2s; }
         .password-toggle:hover { color: #475569; }
         .form-control.with-toggle { padding-right: 3.5rem; }
-        .avatar-circle { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; border: 2px solid #ffffff; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .avatar-placeholder { width: 32px; height: 32px; border-radius: 50%; background: #f1f5f9; display: flex; align-items: center; justify-content: center; color: #94a3b8; font-weight: 700; font-size: 0.7rem; border: 2px solid #ffffff; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
         #qr-code-placeholder svg { width: 140px !important; height: 140px !important; display: block; margin: 0 auto; }
+        
+        /* Skeleton Loader Styles */
+        .skeleton {
+            background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite linear;
+            border-radius: 0.5rem;
+        }
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
     </style>
 
     <div class="container-fluid p-0">
@@ -111,30 +121,32 @@
                 <div class="col-12 col-lg-5">
                     {{-- 2FA CARD --}}
                     <div class="card border-0 shadow-sm rounded-3 mb-4">
-                        <div class="card-body p-4">
+                        <div class="card-body p-4" id="2fa-card-body">
                             <h6 class="fw-bold text-navy mb-2">Keamanan Dua Langkah (2FA)</h6>
                             <p class="text-slate-500 mb-4" style="font-size: 0.85rem; line-height: 1.6;">Lindungi akun Anda dengan verifikasi tambahan melalui aplikasi authenticator.</p>
                             
-                            @php
-                                $hasSecret = !empty(auth()->user()->google2fa_secret);
-                                $isEnabled = (bool)auth()->user()->two_factor_enabled;
-                            @endphp
-                            @if(!$hasSecret)
-                                <button class="btn btn-blue w-100 rounded-3 fw-bold py-2 shadow-sm" onclick="start2faSetup()">Aktifkan 2FA</button>
-                            @else
-                                <div class="p-3 rounded-3 border bg-light d-flex align-items-center justify-content-between mb-3">
-                                    <div class="d-flex align-items-center">
-                                        <div class="bg-success bg-opacity-10 p-2 rounded-2 me-3">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#198754" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            <div id="2fa-content-area">
+                                @php
+                                    $hasSecret = !empty(auth()->user()->google2fa_secret);
+                                    $isEnabled = (bool)auth()->user()->two_factor_enabled;
+                                @endphp
+                                @if(!$hasSecret)
+                                    <button class="btn btn-blue w-100 rounded-3 fw-bold py-2 shadow-sm" onclick="start2faSetup()">Aktifkan 2FA</button>
+                                @else
+                                    <div class="p-3 rounded-3 border bg-light d-flex align-items-center justify-content-between mb-3">
+                                        <div class="d-flex align-items-center">
+                                            <div id="2fa-status-icon" class="{{ $isEnabled ? 'bg-success' : 'bg-secondary' }} bg-opacity-10 p-2 rounded-2 me-3">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="{{ $isEnabled ? '#198754' : '#6c757d' }}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                            </div>
+                                            <span id="2fa-status-text" class="fw-bold small {{ $isEnabled ? 'text-success' : 'text-secondary' }}">{{ $isEnabled ? 'Keamanan Aktif' : 'Keamanan Nonaktif' }}</span>
                                         </div>
-                                        <span class="fw-bold small text-success">Keamanan Aktif</span>
+                                        <div class="form-check form-switch m-0">
+                                            <input class="form-check-input" type="checkbox" id="2faSwitch" {{ $isEnabled ? 'checked' : '' }} onchange="toggle2fa(this.checked)">
+                                        </div>
                                     </div>
-                                    <div class="form-check form-switch m-0">
-                                        <input class="form-check-input" type="checkbox" id="2faSwitch" {{ $isEnabled ? 'checked' : '' }} onchange="toggle2fa(this.checked)">
-                                    </div>
-                                </div>
-                                <button class="btn btn-outline-secondary btn-sm w-100 rounded-3 py-2" onclick="reset2fa()">Atur Ulang Perangkat</button>
-                            @endif
+                                    <button class="btn btn-outline-secondary btn-sm w-100 rounded-3 py-2" onclick="showReset2faModal()">Reset Authenticator</button>
+                                @endif
+                            </div>
                         </div>
                     </div>
 
@@ -172,7 +184,7 @@
                                 <div class="mb-4">
                                     <label class="form-label small fw-bold text-slate-700">Kata Sandi Saat Ini <span class="text-danger">*</span></label>
                                     <div class="input-group">
-                                        <input type="password" name="current_password" class="form-control rounded-start-3 py-2 px-3 border border-end-0 bg-light bg-opacity-25" required placeholder="Masukkan sandi lama" style="font-size: 0.9rem; border-color: #dee2e6;">
+                                        <input type="password" name="current_password" class="form-control rounded-start-3 py-2 px-3 border border-end-0 bg-light bg-opacity-25" required placeholder="Masukkan sandi lama" style="font-size: 0.9rem; border-color: #dee2e6;" autocomplete="new-password">
                                         <button type="button" class="btn btn-white border border-start-0 text-slate-400 px-3" onclick="togglePassword(this)" style="border-color: #dee2e6;">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="eye-icon"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                                         </button>
@@ -199,7 +211,8 @@
                                         </div>
                                     </div>
                                     <div class="col-12">
-                                        <div class="text-slate-400 italic" style="font-size: 0.75rem;">* Kosongkan jika tidak ingin mengubah sandi.</div>
+                                        <div class="text-slate-500" style="font-size: 0.75rem;">Min. 8 karakter, huruf besar & angka. (Cth: BalmonLampung24)</div>
+                                        <div class="text-slate-400 italic mt-1" style="font-size: 0.75rem;">* Kosongkan jika tidak ingin mengubah kata sandi.</div>
                                     </div>
                                 </div>
 
@@ -235,7 +248,7 @@
                                             <div class="d-flex align-items-center gap-3">
                                                 @if($log->user && $log->user->role !== 'super_admin')
                                                     @if($log->user->profile_photo)
-                                                        <img src="{{ asset('storage/' . $log->user->profile_photo) }}" class="avatar-circle" alt="Avatar">
+                                                        <img src="{{ asset('storage/' . $log->user->profile_photo) }}" class="avatar-circle" alt="Avatar" onclick="viewFullAvatar(this.src, '{{ addslashes($log->user->name) }}')">
                                                     @else
                                                         <div class="avatar-placeholder">{{ strtoupper(substr($log->user->name, 0, 1)) }}</div>
                                                     @endif
@@ -261,7 +274,7 @@
             <div id="view-threats" class="view-container">
                 <a href="javascript:void(0)" onclick="showSettingsHub()" class="back-btn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg> Kembali</a>
                 <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-                    <div class="card-header bg-white fw-bold py-3 text-danger">Log Deteksi Ancaman</div>
+                    <div class="card-header bg-white fw-bold py-3 text-danger">Aktivitas Mencurigakan</div>
                     <div class="table-responsive">
                         <table class="table table-hover align-middle mb-0" style="font-size: 0.75rem;">
                             <thead class="bg-light">
@@ -305,7 +318,7 @@
                                             <div class="d-flex align-items-center gap-3 py-2">
                                                 @if($u->role !== 'super_admin')
                                                     @if($u->profile_photo)
-                                                        <img src="{{ asset('storage/' . $u->profile_photo) }}" class="avatar-circle" alt="Avatar">
+                                                        <img src="{{ asset('storage/' . $u->profile_photo) }}" class="avatar-circle" alt="Avatar" onclick="viewFullAvatar(this.src, '{{ addslashes($u->name) }}')">
                                                     @else
                                                         <div class="avatar-placeholder">{{ strtoupper(substr($u->name, 0, 1)) }}</div>
                                                     @endif
@@ -376,12 +389,40 @@
                     <h5 class="fw-800 text-navy mb-4" style="font-size: 1.1rem;">Scan QR Code</h5>
                     <div id="qr-code-placeholder" class="mb-4 p-3 bg-white d-inline-block rounded-4 border"></div>
                     <div class="mb-4">
-                        <input type="text" id="setup-code" class="form-control text-center fw-800" placeholder="000000" maxlength="6" style="font-size: 1.5rem; border-radius: 1rem;">
-                        <div class="text-slate-400 mt-2" style="font-size: 0.75rem;">Masukkan 6 digit kode dari aplikasi.</div>
+                        <input type="text" id="setup-verification-code" class="form-control text-center fw-800" placeholder="000000" maxlength="6" style="font-size: 1.5rem; border-radius: 1rem;" autocomplete="one-time-code">
+                        <div class="text-slate-400 mt-2" style="font-size: 0.75rem;">Masukkan 6 digit kode dari aplikasi Google Authenticator.</div>
                     </div>
                     <div class="d-grid gap-2">
                         <button class="btn btn-dark rounded-3 fw-bold py-2 shadow-sm" id="btn-verify-setup" onclick="verify2faSetup()">Verifikasi & Aktifkan</button>
                         <button class="btn btn-link text-slate-400 text-decoration-none small" onclick="hideQrModal()">Batal</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2FA RESET MODAL -->
+        <div id="reset2fa-modal" class="modal-premium-overlay">
+            <div class="modal-premium-container" style="max-width: 400px;">
+                <div class="modal-premium-content text-center">
+                    <div class="confirm-icon-circle mb-3 mx-auto" style="width: 64px; height: 64px; border-radius: 50%; background: #fff1f2; display: flex; align-items: center; justify-content: center;">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#e11d48" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                    </div>
+                    <h5 class="fw-800 text-navy mb-2" style="font-size: 1.1rem;">Reset Authenticator</h5>
+                    <div class="text-slate-500 mb-2" style="font-size: 0.85rem;">Silakan masukkan kata sandi Anda untuk mereset 2FA.</div>
+                    <div class="text-danger mb-4" style="font-size: 0.75rem; font-weight: 600;">Seluruh perangkat authenticator akan diputus.</div>
+                    
+                    <div class="position-relative mb-4 text-start">
+                        <input type="password" id="reset2fa-password-input" class="form-control rounded-3 with-toggle py-2" placeholder="Masukkan kata sandi Anda" style="font-size: 0.95rem;">
+                        <button type="button" class="password-toggle" onclick="togglePassword(this)">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="eye-icon"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                        </button>
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <button class="btn-premium-ok flex-grow-1" id="btn-submit-reset2fa" onclick="submitReset2fa()">Reset Sekarang</button>
+                        <button class="btn-premium-cancel flex-grow-1" onclick="hideReset2faModal()">Batal</button>
                     </div>
                 </div>
             </div>
@@ -417,12 +458,13 @@
                                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="eye-icon"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                                 </button>
                             </div>
-                            <div id="password-hint" class="small text-slate-400 mt-1" style="font-size: 0.7rem;">* Kosongkan jika tidak ingin mengubah password.</div>
+                            <div class="text-slate-500 mt-1" style="font-size: 0.7rem;">Min. 8 karakter, huruf besar & angka. (Cth: BalmonLampung24)</div>
+                            <div id="password-hint" class="small text-slate-400 mt-1" style="font-size: 0.7rem;">* Kosongkan jika tidak ingin mengubah kata sandi.</div>
                         </div>
 
                         <div id="reset-link-container" class="mb-4" style="display:none;">
                             <div class="p-3 rounded-4 bg-blue-50 border border-blue-100 text-center">
-                                <p class="small text-slate-600 mb-3" style="font-size: 0.75rem;">Kirimkan tautan resmi ke email pemilik akun ini agar mereka dapat meriset kata sandi secara mandiri.</p>
+                                <p class="small text-slate-600 mb-3" style="font-size: 0.75rem;">Kirimkan tautan resmi ke email pemilik akun ini agar mereka dapat mereset kata sandi secara mandiri.</p>
                                 <button type="button" id="btn-send-reset" class="btn btn-blue btn-sm rounded-3 fw-bold px-4" onclick="sendResetLink()">Kirim Tautan Reset</button>
                             </div>
                         </div>
@@ -468,7 +510,10 @@
                             </tr>
                         </thead>
                         <tbody id="master-data-tbody">
-                            <tr><td colspan="3" class="text-center py-4 text-slate-400">Memuat data...</td></tr>
+                            <!-- Skeleton Loader (Will be replaced by JS) -->
+                            <tr><td class="ps-4 py-3"><div class="skeleton" style="height: 18px; width: 70%;"></div></td><td class="text-center"><div class="skeleton mx-auto" style="height: 22px; width: 50px; border-radius: 20px;"></div></td><td class="pe-4 text-end"><div class="skeleton ms-auto" style="height: 30px; width: 60px; border-radius: 8px;"></div></td></tr>
+                            <tr><td class="ps-4 py-3"><div class="skeleton" style="height: 18px; width: 50%;"></div></td><td class="text-center"><div class="skeleton mx-auto" style="height: 22px; width: 50px; border-radius: 20px;"></div></td><td class="pe-4 text-end"><div class="skeleton ms-auto" style="height: 30px; width: 60px; border-radius: 8px;"></div></td></tr>
+                            <tr><td class="ps-4 py-3"><div class="skeleton" style="height: 18px; width: 60%;"></div></td><td class="text-center"><div class="skeleton mx-auto" style="height: 22px; width: 50px; border-radius: 20px;"></div></td><td class="pe-4 text-end"><div class="skeleton ms-auto" style="height: 30px; width: 60px; border-radius: 8px;"></div></td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -552,6 +597,7 @@
             });
         }
 
+
         function switchSettingsView(viewName) {
             const hub = document.getElementById('settings-hub');
             const target = document.getElementById('view-' + viewName);
@@ -563,9 +609,6 @@
                 
                 // Tampilkan target view
                 target.style.display = 'block';
-                
-                // Simpan posisi menu di memori sementara browser
-                sessionStorage.setItem('active_settings_menu', viewName);
                 
                 // Scroll ke paling atas
                 window.scrollTo(0, 0);
@@ -581,24 +624,14 @@
             document.querySelectorAll('.view-container').forEach(v => v.style.display = 'none');
             document.getElementById('settings-hub').style.display = 'block';
             
-            // Hapus memori posisi menu
-            sessionStorage.removeItem('active_settings_menu');
-            
             window.scrollTo(0, 0);
         }
 
         // Jalankan otomatis saat halaman dimuat ulang (termasuk navigasi Livewire)
         function initSettingsNavigation() {
-            const savedMenu = sessionStorage.getItem('active_settings_menu');
             const hub = document.getElementById('settings-hub');
-            
             if (hub) {
-                if (savedMenu) {
-                    switchSettingsView(savedMenu);
-                } else {
-                    // Jika tidak ada memori menu, tampilkan hub utama
-                    hub.style.display = 'block';
-                }
+                showSettingsHub();
             }
         }
 
@@ -606,11 +639,11 @@
         document.addEventListener('livewire:navigated', initSettingsNavigation);
         async function start2faSetup() {
             const { value: password } = await Swal.fire({
-                title: 'Konfirmasi Password',
+                title: 'Konfirmasi Kata Sandi',
                 html: `
-                    <div class="text-slate-500 mb-3" style="font-size: 0.85rem;">Silakan masukkan password Anda untuk mengaktifkan 2FA.</div>
+                    <div class="text-slate-500 mb-3" style="font-size: 0.85rem;">Silakan masukkan kata sandi Anda untuk mengaktifkan 2FA.</div>
                     <div class="position-relative">
-                        <input type="password" id="swal-password" class="swal2-input m-0 w-100 rounded-3" placeholder="Masukkan password Anda" style="font-size: 0.95rem; height: 3.2rem;">
+                        <input type="password" id="swal-password" class="swal2-input m-0 w-100 rounded-3" placeholder="Masukkan kata sandi Anda" style="font-size: 0.95rem; height: 3.2rem;">
                         <button type="button" class="password-toggle" onclick="togglePassword(this)" style="right: 1.25rem; top: 50%; transform: translateY(-50%); border: none; background: transparent; padding: 0;">
                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="eye-icon" style="color: #94a3b8;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                         </button>
@@ -624,7 +657,7 @@
                 preConfirm: () => {
                     const pass = document.getElementById('swal-password').value;
                     if (!pass) {
-                        Swal.showValidationMessage('Password wajib diisi');
+                        Swal.showValidationMessage('Kata sandi wajib diisi');
                     }
                     return pass;
                 }
@@ -649,7 +682,7 @@
                     document.getElementById('qr-code-placeholder').innerHTML = data.svg;
                     document.getElementById('qr-modal').classList.add('active');
                 } else {
-                    Swal.fire({ icon: 'error', title: 'Gagal', text: data.message || 'Password salah.', iconColor: '#ef4444' });
+                    Swal.fire({ icon: 'error', title: 'Gagal', text: data.message || 'Kata sandi salah.', iconColor: '#ef4444' });
                 }
             } catch (e) { 
                 Swal.fire({ icon: 'error', title: 'Gagal', text: 'Terjadi kesalahan sistem.', iconColor: '#ef4444' }); 
@@ -657,7 +690,7 @@
         }
         function hideQrModal() { document.getElementById('qr-modal').classList.remove('active'); }
         async function verify2faSetup() {
-            const code = document.getElementById('setup-code').value;
+            const code = document.getElementById('setup-verification-code').value;
             if(code.length !== 6) return Swal.fire({ icon: 'warning', title: 'Kode Tidak Lengkap', text: 'Masukkan 6 digit kode.', iconColor: '#f59e0b' });
             try {
                 const response = await fetch('{{ route("2fa.enable") }}', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' }, body: JSON.stringify({ code }) });
@@ -673,48 +706,74 @@
             }
         }
         async function toggle2fa(enabled) {
+            const statusIcon = document.getElementById('2fa-status-icon');
+            const statusText = document.getElementById('2fa-status-text');
+            const toggleSwitch = document.getElementById('2faSwitch');
+            
+            // Kunci tombol saat memproses agar tidak bisa di-spam klik
+            toggleSwitch.disabled = true;
+            
             try {
-                const response = await fetch('{{ route("2fa.toggle") }}', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' }, body: JSON.stringify({ enabled }) });
+                const response = await fetch('{{ route("2fa.toggle") }}', { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' }, 
+                    body: JSON.stringify({ enabled }) 
+                });
                 const data = await response.json();
+                
                 if(!data.success) {
                     Swal.fire({ icon: 'error', title: 'Gagal', text: data.message, iconColor: '#ef4444' });
-                    setTimeout(() => location.reload(), 2000);
+                    toggleSwitch.checked = !enabled; // Revert switch
                 } else {
-                    location.reload();
+                    // Update UI Tanpa Refresh (Sat-Set)
+                    if (enabled) {
+                        statusIcon.className = 'bg-success bg-opacity-10 p-2 rounded-2 me-3';
+                        statusIcon.querySelector('svg').setAttribute('stroke', '#198754');
+                        statusText.className = 'fw-bold small text-success';
+                        statusText.innerText = 'Keamanan Aktif';
+                    } else {
+                        statusIcon.className = 'bg-secondary bg-opacity-10 p-2 rounded-2 me-3';
+                        statusIcon.querySelector('svg').setAttribute('stroke', '#6c757d');
+                        statusText.className = 'fw-bold small text-secondary';
+                        statusText.innerText = 'Keamanan Nonaktif';
+                    }
+                    
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Berhasil',
+                        text: enabled ? '2FA telah diaktifkan.' : '2FA telah dinonaktifkan.',
+                        timer: 1500,
+                        showConfirmButton: false,
+                        iconColor: '#10b981'
+                    });
                 }
             } catch (e) { 
-                Swal.fire({ icon: 'error', title: 'Kesalahan', text: 'Terjadi kesalahan.', iconColor: '#ef4444' });
-                setTimeout(() => location.reload(), 2000);
+                Swal.fire({ icon: 'error', title: 'Kesalahan', text: 'Terjadi kesalahan jaringan.', iconColor: '#ef4444' });
+                toggleSwitch.checked = !enabled; // Revert switch
+            } finally {
+                // Buka kembali kunci tombol setelah proses selesai
+                toggleSwitch.disabled = false;
             }
         }
-        async function reset2fa() {
-            const { value: password } = await Swal.fire({
-                title: 'Konfirmasi Password',
-                html: `
-                    <div class="text-slate-500 mb-2" style="font-size: 0.85rem;">Silakan masukkan password Anda untuk mereset 2FA.</div>
-                    <div class="text-danger mb-3" style="font-size: 0.75rem; font-weight: 600;">Seluruh perangkat authenticator akan diputus.</div>
-                    <div class="position-relative">
-                        <input type="password" id="swal-password-reset" class="swal2-input m-0 w-100 rounded-3" placeholder="Masukkan password Anda" style="font-size: 0.95rem; height: 3.2rem;">
-                        <button type="button" class="password-toggle" onclick="togglePassword(this)" style="right: 1.25rem; top: 50%; transform: translateY(-50%); border: none; background: transparent; padding: 0;">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="eye-icon" style="color: #94a3b8;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-                        </button>
-                    </div>
-                `,
-                showCancelButton: true,
-                confirmButtonText: 'Reset Sekarang',
-                cancelButtonText: 'Batal',
-                icon: 'warning',
-                iconColor: '#ef4444',
-                preConfirm: () => {
-                    const pass = document.getElementById('swal-password-reset').value;
-                    if (!pass) {
-                        Swal.showValidationMessage('Password wajib diisi');
-                    }
-                    return pass;
-                }
-            });
+        function showReset2faModal() {
+            document.getElementById('reset2fa-password-input').value = '';
+            document.getElementById('reset2fa-modal').classList.add('active');
+        }
 
-            if (!password) return;
+        function hideReset2faModal() {
+            document.getElementById('reset2fa-modal').classList.remove('active');
+        }
+
+        async function submitReset2fa() {
+            const password = document.getElementById('reset2fa-password-input').value;
+            if (!password) {
+                Swal.fire({ icon: 'warning', title: 'Peringatan', text: 'Kata sandi wajib diisi untuk mereset.', iconColor: '#eab308' });
+                return;
+            }
+
+            const btn = document.getElementById('btn-submit-reset2fa');
+            btn.disabled = true;
+            btn.textContent = 'Memproses...';
 
             try {
                 const response = await fetch('{{ route("2fa.reset") }}', { 
@@ -730,6 +789,7 @@
                 const data = await response.json();
 
                 if (response.ok && data.success) {
+                    hideReset2faModal();
                     Swal.fire({ icon: 'success', title: 'Berhasil', text: '2FA berhasil direset.', iconColor: '#10b981' }).then(() => {
                         location.reload();
                     });
@@ -738,6 +798,9 @@
                 }
             } catch (e) { 
                 Swal.fire({ icon: 'error', title: 'Kesalahan', text: 'Terjadi kesalahan sistem.', iconColor: '#ef4444' });
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Reset Sekarang';
             }
         }
         function previewProfilePhoto(input) {
@@ -770,7 +833,10 @@
                 
                 if(response.ok) {
                     Swal.fire({ icon: 'success', title: 'Berhasil!', text: data.message, timer: 2000, showConfirmButton: false, iconColor: '#10b981' });
-                    setTimeout(() => location.reload(), 2000);
+                    // Ganti reload dengan update nama di navbar jika perlu
+                    if (document.getElementById('user-name-navbar')) {
+                        document.getElementById('user-name-navbar').innerText = formData.get('name');
+                    }
                 } else {
                     let errorMsg = data.message;
                     if (data.errors) errorMsg = Object.values(data.errors).flat().join('\n');
@@ -902,6 +968,7 @@
 
                 const data = await response.json();
                 if (response.ok) {
+                    hideUserModal(); // Sembunyikan modal agar background tidak menumpuk ganda (menghitam)
                     Swal.fire({ icon: 'success', title: 'Berhasil!', text: data.message, timer: 2000, showConfirmButton: false, iconColor: '#10b981' });
                     setTimeout(() => location.reload(), 2000);
                 } else {
@@ -1009,7 +1076,7 @@
         async function confirmDeleteSelf() {
             const password = document.getElementById('delete-confirm-password').value;
             if (!password) {
-                return Swal.fire({ icon: 'warning', title: 'Password Wajib', text: 'Silakan masukkan password Anda untuk konfirmasi.', iconColor: '#f59e0b' });
+                return Swal.fire({ icon: 'warning', title: 'Kata Sandi Wajib', text: 'Silakan masukkan kata sandi Anda untuk konfirmasi.', iconColor: '#f59e0b' });
             }
 
             try {
@@ -1077,57 +1144,92 @@
         }
 
         // ================= MASTER DATA FUNCTIONS =================
+        let masterDataCache = {};
+
         async function loadMasterData() {
             const category = document.getElementById('master-data-category').value;
             const tbody = document.getElementById('master-data-tbody');
-            tbody.innerHTML = '<tr><td colspan="3" class="text-center py-4 text-slate-400">Memuat data...</td></tr>';
+            
+            // Perceived Performance: Jika ada di cache, tampilkan INSTAN tanpa skeleton
+            if (masterDataCache[category]) {
+                renderMasterDataTable(masterDataCache[category]);
+                // Tetap update di background (Silent Refresh) agar data selalu fresh
+                fetchMasterData(category, false); 
+            } else {
+                // Jika belum ada, tampilkan skeleton
+                showMasterDataSkeleton();
+                fetchMasterData(category, true);
+            }
+        }
 
+        function showMasterDataSkeleton() {
+            const tbody = document.getElementById('master-data-tbody');
+            tbody.innerHTML = `
+                <tr><td class="ps-4 py-3"><div class="skeleton" style="height: 18px; width: 70%;"></div></td><td class="text-center"><div class="skeleton mx-auto" style="height: 22px; width: 50px; border-radius: 20px;"></div></td><td class="pe-4 text-end"><div class="skeleton ms-auto" style="height: 30px; width: 60px; border-radius: 8px;"></div></td></tr>
+                <tr><td class="ps-4 py-3"><div class="skeleton" style="height: 18px; width: 50%;"></div></td><td class="text-center"><div class="skeleton mx-auto" style="height: 22px; width: 50px; border-radius: 20px;"></div></td><td class="pe-4 text-end"><div class="skeleton ms-auto" style="height: 30px; width: 60px; border-radius: 8px;"></div></td></tr>
+                <tr><td class="ps-4 py-3"><div class="skeleton" style="height: 18px; width: 60%;"></div></td><td class="text-center"><div class="skeleton mx-auto" style="height: 22px; width: 50px; border-radius: 20px;"></div></td><td class="pe-4 text-end"><div class="skeleton ms-auto" style="height: 30px; width: 60px; border-radius: 8px;"></div></td></tr>
+            `;
+        }
+
+        async function fetchMasterData(category, updateUI = true) {
             try {
                 const response = await fetch(`{{ route('master-data.index') }}?category=${category}`, {
                     headers: { 'Accept': 'application/json' }
                 });
-
                 if (!response.ok) throw new Error('Network response was not ok');
-                
                 const data = await response.json();
+                
+                // Simpan ke cache
+                masterDataCache[category] = data;
 
-                if (data.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="3" class="text-center py-4 text-slate-400">Belum ada opsi untuk kategori ini.</td></tr>';
-                    return;
+                if (updateUI) {
+                    renderMasterDataTable(data);
                 }
-
-                tbody.innerHTML = '';
-                data.forEach(item => {
-                    const statusBadge = item.is_active 
-                        ? '<span class="badge bg-success bg-opacity-10 text-success px-2 py-1 rounded-pill" style="font-size: 0.65rem;">AKTIF</span>'
-                        : '<span class="badge bg-danger bg-opacity-10 text-danger px-2 py-1 rounded-pill" style="font-size: 0.65rem;">NONAKTIF</span>';
-                    
-                    const toggleBtnClass = item.is_active ? 'btn-outline-warning' : 'btn-outline-success';
-                    const toggleBtnTitle = item.is_active ? 'Nonaktifkan' : 'Aktifkan';
-
-                    tbody.innerHTML += `
-                        <tr id="md-row-${item.id}">
-                            <td class="ps-4 py-3 fw-bold text-navy" id="md-val-${item.id}">${item.value}</td>
-                            <td class="py-3 text-center" id="md-status-${item.id}">${statusBadge}</td>
-                            <td class="pe-4 py-3 text-end">
-                                <div class="d-flex gap-2 justify-content-end">
-                                    <button id="md-btn-toggle-${item.id}" class="btn btn-sm ${toggleBtnClass} rounded-3" title="${toggleBtnTitle}" onclick="toggleMasterData(${item.id}, ${item.is_active})">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line></svg>
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-secondary rounded-3" onclick="showMasterDataModal(${item.id}, '${item.value.replace(/'/g, "\\'")}')">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-danger rounded-3" onclick="deleteMasterData(${item.id})">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                    `;
-                });
             } catch (error) {
-                tbody.innerHTML = `<tr><td colspan="3" class="text-center py-4 text-danger">Gagal memuat data: ${error.message}</td></tr>`;
+                if (updateUI) {
+                    const tbody = document.getElementById('master-data-tbody');
+                    tbody.innerHTML = `<tr><td colspan="3" class="text-center py-4 text-danger">Gagal memuat data: ${error.message}</td></tr>`;
+                }
             }
+        }
+
+        function renderMasterDataTable(data) {
+            const tbody = document.getElementById('master-data-tbody');
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" class="text-center py-4 text-slate-400">Belum ada opsi untuk kategori ini.</td></tr>';
+                return;
+            }
+
+            let html = '';
+            data.forEach(item => {
+                const statusBadge = item.is_active 
+                    ? '<span class="badge bg-success bg-opacity-10 text-success px-2 py-1 rounded-pill" style="font-size: 0.65rem;">AKTIF</span>'
+                    : '<span class="badge bg-danger bg-opacity-10 text-danger px-2 py-1 rounded-pill" style="font-size: 0.65rem;">NONAKTIF</span>';
+                
+                const toggleBtnClass = item.is_active ? 'btn-outline-warning' : 'btn-outline-success';
+                const toggleBtnTitle = item.is_active ? 'Nonaktifkan' : 'Aktifkan';
+
+                html += `
+                    <tr id="md-row-${item.id}">
+                        <td class="ps-4 py-3 fw-bold text-navy" id="md-val-${item.id}">${item.value}</td>
+                        <td class="py-3 text-center" id="md-status-${item.id}">${statusBadge}</td>
+                        <td class="pe-4 py-3 text-end">
+                            <div class="d-flex gap-2 justify-content-end">
+                                <button id="md-btn-toggle-${item.id}" class="btn btn-sm ${toggleBtnClass} rounded-3" title="${toggleBtnTitle}" onclick="toggleMasterData(${item.id}, ${item.is_active})">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line></svg>
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary rounded-3" onclick="showMasterDataModal(${item.id}, '${item.value.replace(/'/g, "\\'")}')">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger rounded-3" onclick="deleteMasterData(${item.id})">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
         }
 
         function showMasterDataModal(id = null, value = '') {
@@ -1258,15 +1360,17 @@
             });
         }
         
-        // Panggil loadMasterData otomatis saat view masterdata aktif (termasuk navigasi Livewire)
+        // Hapus auto-load berdasarkan session karena fitur memori sudah dimatikan
         function checkMasterDataAutoLoad() {
-            if (sessionStorage.getItem('active_settings_menu') === 'masterdata') {
-                loadMasterData();
-            }
+            // Kosongkan atau hapus jika tidak diperlukan lagi
         }
 
-        document.addEventListener('DOMContentLoaded', checkMasterDataAutoLoad);
-        document.addEventListener('livewire:navigated', checkMasterDataAutoLoad);
+        document.addEventListener('DOMContentLoaded', () => {
+            checkMasterDataAutoLoad();
+        });
+        document.addEventListener('livewire:navigated', () => {
+            checkMasterDataAutoLoad();
+        });
 
     </script>
 @endsection

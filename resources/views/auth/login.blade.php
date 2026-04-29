@@ -11,6 +11,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <style>
         :root {
@@ -26,12 +27,20 @@
             background-image:
                 radial-gradient(at 0% 0%, rgba(37,99,235,0.05) 0, transparent 50%),
                 radial-gradient(at 100% 100%, rgba(56,189,248,0.03) 0, transparent 50%);
-            height: 100vh;
+            margin: 0;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .login-wrapper {
+            min-height: 100vh;
+            width: 100%;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin: 0;
-            overflow: hidden;
+            position: relative;
+            padding: 2rem 1.5rem;
+            z-index: 5;
         }
 
         .login-card {
@@ -52,6 +61,8 @@
             from { opacity: 0; transform: translateY(12px); }
             to   { opacity: 1; transform: translateY(0); }
         }
+        .btn-login:active { transform: scale(0.98); }
+        .btn-login:disabled { opacity: 0.7; cursor: not-allowed; }
 
         .login-card::before {
             content: '';
@@ -86,9 +97,9 @@
             z-index: 10; pointer-events: none;
         }
         .input-group-modern .form-control {
-            padding: 0.875rem 3.25rem 0.875rem 3.25rem;
+            padding: 0.875rem 3.25rem !important;
             border-radius: 1rem; border: 1px solid #e2e8f0;
-            font-weight: 600; font-size: 0.95rem; color: var(--balmon-navy);
+            font-weight: 600; font-size: 0.95rem !important; color: var(--balmon-navy);
             transition: all 0.3s ease;
         }
         .input-group-modern .form-control:focus {
@@ -180,21 +191,17 @@
     </style>
 </head>
 <body>
-    <div class="decoration-circle circle-1"></div>
-    <div class="decoration-circle circle-2"></div>
+    <div class="login-wrapper">
+        <div class="decoration-circle circle-1"></div>
+        <div class="decoration-circle circle-2"></div>
 
-    <main class="login-card">
+        <main class="login-card">
         <div class="login-header">
             <div class="brand-logo">
                 <img src="{{ asset('images/logo-balmon-lampung-transparent.png') }}" alt="Logo Balmon">
             </div>
             <h1>Portal Monitoring</h1>
-
-            @if($has2fa)
-                <p>Verifikasi Keamanan 2FA</p>
-            @else
-                <p>Silakan masuk ke sistem</p>
-            @endif
+            <p id="login-subtitle">Silakan masuk ke sistem</p>
         </div>
 
         @if ($errors->any())
@@ -206,41 +213,54 @@
 
         <form method="POST" action="{{ route('login') }}" id="login-form" autocomplete="off">
             @csrf
-            <input type="hidden" name="email" value="{{ $adminEmail }}">
+            {{-- Decoy inputs to trick Chrome Autofill --}}
+            <input type="text" name="chrome_autofill_decoy_user" style="position: absolute; top: -9999px; left: -9999px;">
+            <input type="password" name="chrome_autofill_decoy_pass" style="position: absolute; top: -9999px; left: -9999px;">
 
-            @if($has2fa)
-                {{-- ===== MODE 2FA: Hanya kotak kode ===== --}}
+            {{-- ===== 2FA ONLY (PASSWORDLESS / STEP 2) ===== --}}
+            <div id="view-2fa" style="display: {{ $loginPreference === '2fa' ? 'block' : 'none' }}">
                 <div class="text-center mb-4">
                     <div class="shield-icon-wrap">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
                     </div>
                     <p style="color:var(--balmon-slate); font-size:0.85rem;">
-                        Masukkan 6-digit kode dari <b>Google Authenticator</b>.
+                        Masukkan 6-digit kode dari <b>Google Authenticator</b> Anda untuk masuk instan.
                     </p>
                 </div>
 
                 <div class="otp-input-container">
-                    <input type="text" maxlength="1" class="otp-field" data-otp="1" autocomplete="off" inputmode="numeric" autofocus>
-                    <input type="text" maxlength="1" class="otp-field" data-otp="2" autocomplete="off" inputmode="numeric">
-                    <input type="text" maxlength="1" class="otp-field" data-otp="3" autocomplete="off" inputmode="numeric">
-                    <input type="text" maxlength="1" class="otp-field" data-otp="4" autocomplete="off" inputmode="numeric">
-                    <input type="text" maxlength="1" class="otp-field" data-otp="5" autocomplete="off" inputmode="numeric">
-                    <input type="text" maxlength="1" class="otp-field" data-otp="6" autocomplete="off" inputmode="numeric">
+                    <input type="tel" maxlength="1" class="otp-field" data-otp="1" autocomplete="one-time-code" inputmode="numeric" value="">
+                    <input type="tel" maxlength="1" class="otp-field" data-otp="2" autocomplete="off" inputmode="numeric" value="">
+                    <input type="tel" maxlength="1" class="otp-field" data-otp="3" autocomplete="off" inputmode="numeric" value="">
+                    <input type="tel" maxlength="1" class="otp-field" data-otp="4" autocomplete="off" inputmode="numeric" value="">
+                    <input type="tel" maxlength="1" class="otp-field" data-otp="5" autocomplete="off" inputmode="numeric" value="">
+                    <input type="tel" maxlength="1" class="otp-field" data-otp="6" autocomplete="off" inputmode="numeric" value="">
                 </div>
 
                 <input type="hidden" name="two_factor_code" id="two_factor_code">
+                <input type="hidden" name="email" id="email_2fa_hidden">
 
-                <button type="submit" class="btn btn-login">
-                    Verifikasi &amp; Masuk
+                <button type="submit" class="btn btn-login mb-3">
+                    Verifikasi & Masuk
                 </button>
-            @else
-                {{-- ===== MODE BIASA: Email + Password ===== --}}
+
+                <div class="text-center">
+                    <a href="javascript:void(0)" id="back-to-login-link" onclick="backToLogin()" class="text-decoration-none" style="display: none; font-size: 0.85rem; color: var(--balmon-slate); font-weight: 600;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><path d="m15 18-6-6 6-6"/></svg>
+                        Kembali ke Login
+                    </a>
+                </div>
+            </div>
+
+
+            {{-- ===== EMAIL + PASSWORD ===== --}}
+            <div id="view-email" style="display: {{ $loginPreference === '2fa' ? 'none' : 'block' }}">
                 <div class="form-group mb-3">
                     <label class="form-label">Email Petugas</label>
                     <div class="input-group-modern">
                         <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
-                        <input type="email" name="email" class="form-control"
-                               placeholder="nama@balmon.go.id" value="{{ old('email', $adminEmail) }}" required autofocus>
+                        <input type="email" name="email" id="email_input" class="form-control"
+                               placeholder="Masukkan Email Petugas" value="{{ old('email') }}" autofocus>
                     </div>
                 </div>
 
@@ -249,24 +269,35 @@
                     <div class="input-group-modern">
                         <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                         <input type="password" name="password" id="password" class="form-control"
-                               placeholder="••••••••" required>
+                               placeholder="••••••••">
                         <button type="button" class="toggle-password" onclick="togglePassword('password', this)">
                             <svg class="eye-open" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
                             <svg class="eye-closed d-none" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.52 13.52 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
                         </button>
                     </div>
                 </div>
+                
+                <div class="d-flex align-items-center justify-content-between mb-4 px-1">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="remember" id="remember" {{ old('remember') ? 'checked' : '' }}>
+                        <label class="form-check-label" for="remember" style="font-size: 0.8rem; font-weight: 600; color: var(--balmon-slate); cursor: pointer;">
+                            Ingat Saya
+                        </label>
+                    </div>
+                </div>
 
-                <button type="submit" class="btn btn-login">
+                <button type="submit" class="btn btn-login mb-3">
                     Masuk ke Sistem
                 </button>
-            @endif
+            </div>
+
         </form>
 
         <div class="login-footer">
             &copy; {{ date('Y') }} KOMDIGI - Balmon Lampung
         </div>
     </main>
+    </div>
 
     <script>
         function togglePassword(inputId, button) {
@@ -286,7 +317,28 @@
         }
     </script>
 
-    @if($has2fa)
+    <script>
+        // Set focus to the first empty OTP field or email on load
+        document.addEventListener('DOMContentLoaded', function() {
+            @if($loginPreference === '2fa')
+                document.getElementById('login-subtitle').innerText = 'Verifikasi Keamanan 2FA';
+                document.querySelector('.otp-field').focus();
+            @else
+                document.getElementById('login-subtitle').innerText = 'Silakan masuk ke sistem';
+                document.getElementById('email_input').focus();
+            @endif
+            // Clear OTP fields on load
+            document.querySelectorAll('.otp-field').forEach(f => f.value = '');
+        });
+
+        function backToLogin() {
+            document.getElementById('view-2fa').style.display = 'none';
+            document.getElementById('view-email').style.display = 'block';
+            document.getElementById('login-subtitle').innerText = 'Silakan masuk ke sistem';
+            document.getElementById('email_input').focus();
+        }
+    </script>
+
     <script>
         // OTP field logic — no external libraries needed
         const fields = document.querySelectorAll('.otp-field');
@@ -323,10 +375,86 @@
             hiddenCode.value = code;
             // Auto-submit on 6 digits
             if (code.length === 6) {
-                document.getElementById('login-form').submit();
+                handleLoginSubmit(new Event('submit'));
             }
         }
+
+        async function handleLoginSubmit(e) {
+            if (e) e.preventDefault();
+            
+            const form = document.getElementById('login-form');
+            const formData = new FormData(form);
+            const btn = document.querySelector('.btn-login');
+            const originalBtnText = btn ? btn.innerHTML : '';
+
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm text-light me-2" role="status" aria-hidden="true"></span>Memproses...';
+            }
+            
+            try {
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    if (data.step2) {
+                        // Switch to 2FA Step 2 (AJAX Style)
+                        document.getElementById('view-email').style.display = 'none';
+                        document.getElementById('view-2fa').style.display = 'block';
+                        document.getElementById('login-subtitle').innerText = 'Verifikasi Keamanan 2FA';
+                        document.getElementById('email_2fa_hidden').value = data.email;
+                        document.getElementById('back-to-login-link').style.display = 'inline-block';
+                        setTimeout(() => document.querySelector('.otp-field').focus(), 100);
+                        if (btn) {
+                            btn.disabled = false;
+                            btn.innerHTML = 'Verifikasi & Masuk';
+                        }
+                    } else if (data.redirect) {
+                        // Success Redirect instantly (Must be a hard refresh to load Dashboard CSS/JS)
+                        window.location.href = data.redirect;
+                    }
+                } else {
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = originalBtnText;
+                    }
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Gagal Masuk',
+                        text: data.message || 'Email atau password salah.',
+                        confirmButtonColor: '#2563eb'
+                    });
+                    // Reset OTP fields if failed on 2FA
+                    if (document.getElementById('view-2fa') && document.getElementById('view-2fa').style.display !== 'none') {
+                        fields.forEach(f => f.value = '');
+                        hiddenCode.value = '';
+                        fields[0].focus();
+                    }
+                }
+            } catch (error) {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = originalBtnText;
+                }
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Kesalahan Sistem',
+                    text: 'Terjadi kesalahan saat menghubungi server.',
+                    confirmButtonColor: '#2563eb'
+                });
+            }
+        }
+
+        document.getElementById('login-form').onsubmit = handleLoginSubmit;
     </script>
-    @endif
 </body>
 </html>

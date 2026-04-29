@@ -440,6 +440,7 @@
             </div>
             <form id="laporanFilterForm" method="GET" action="{{ route('monitoring.index') }}"
                 class="row g-3 align-items-end">
+                <input type="hidden" name="per_page" value="{{ request('per_page', 10) }}">
                 <div class="col-auto">
                     <label class="form-label text-xs fw-medium text-slate-500 text-uppercase mb-1"
                         style="font-size: 0.65rem;">Kategori</label>
@@ -1094,7 +1095,11 @@
 
                     autoSubmitFields.forEach(function (field) {
                         field.addEventListener('change', function () {
-                            form.requestSubmit();
+                            if (typeof window.refreshLaporanTable === 'function') {
+                                window.refreshLaporanTable();
+                            } else {
+                                form.requestSubmit();
+                            }
                         });
                     });
 
@@ -1110,7 +1115,11 @@
                                 searchInToggle.textContent = label;
                             }
 
-                            form.requestSubmit();
+                            if (typeof window.refreshLaporanTable === 'function') {
+                                window.refreshLaporanTable();
+                            } else {
+                                form.requestSubmit();
+                            }
                         });
                     });
 
@@ -1118,7 +1127,11 @@
                         searchInput.addEventListener('keydown', function (event) {
                             if (event.key === 'Enter') {
                                 event.preventDefault();
-                                form.requestSubmit();
+                                if (typeof window.refreshLaporanTable === 'function') {
+                                    window.refreshLaporanTable();
+                                } else {
+                                    form.requestSubmit();
+                                }
                             }
                         });
                     }
@@ -1386,9 +1399,8 @@
                     const html = await response.text();
                     tableContainer.innerHTML = html;
                     
-                    // Cleanup URL to just /laporan
-                    const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
-                    window.history.replaceState({path: cleanUrl}, '', cleanUrl);
+                    // Paksa URL tetap bersih di /laporan (Stealth Mode)
+                    window.history.replaceState({}, '', window.location.pathname);
 
                 } catch (error) {
                     console.error('Error fetching table:', error);
@@ -1407,6 +1419,9 @@
 
             // Global refresh function
             window.refreshLaporanTable = function() {
+                // Langsung hapus URL saat aksi dimulai (Stealth Mode)
+                window.history.replaceState({}, '', window.location.pathname);
+                
                 const formData = new FormData(filterForm);
                 const params = new URLSearchParams(formData).toString();
                 const url = filterForm.getAttribute('action') + '?' + params;
@@ -1684,11 +1699,7 @@
                 });
             });
             
-            // Auto-submit on category change
-            const kategoriSelect = filterForm.querySelector('select[name="kategori"]');
-            if (kategoriSelect) {
-                kategoriSelect.addEventListener('change', () => filterForm.dispatchEvent(new Event('submit')));
-            }
+            // Redundant listeners removed to prevent URL leakage
         });
     </script>
 @endsection

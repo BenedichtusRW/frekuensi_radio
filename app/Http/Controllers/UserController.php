@@ -31,8 +31,22 @@ class UserController extends Controller
         $request->validate([
             'name' => $role === 'super_admin' ? 'nullable' : 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:8',
+            'password' => [
+                'required',
+                'string',
+                \Illuminate\Validation\Rules\Password::min(8)
+                    ->mixedCase()
+                    ->numbers()
+                    ->uncompromised(),
+                new \App\Rules\StrongPassword
+            ],
             'role' => ['required', Rule::in(['super_admin', 'admin'])],
+        ], [
+            'password.uncompromised' => 'Kata sandi ini terdeteksi pernah bocor di internet. Silakan gunakan kata sandi lain demi keamanan akun ini.',
+            'password.min' => 'Kata sandi minimal 8 karakter.',
+            'password.mixed' => 'Kata sandi harus mengandung campuran huruf besar dan kecil.',
+            'password.numbers' => 'Kata sandi harus mengandung angka.',
+            'email.unique' => 'Email ini sudah terdaftar.',
         ]);
 
         $user = User::create([
@@ -68,7 +82,21 @@ class UserController extends Controller
             'name' => $request->role === 'super_admin' ? 'nullable' : 'required|string|max:255',
             'email' => ['required', 'string', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
             'role' => ['required', Rule::in(['super_admin', 'admin'])],
-            'password' => 'nullable|string|min:8',
+            'password' => [
+                'nullable',
+                'string',
+                \Illuminate\Validation\Rules\Password::min(8)
+                    ->mixedCase()
+                    ->numbers()
+                    ->uncompromised(),
+                new \App\Rules\StrongPassword
+            ],
+        ], [
+            'password.uncompromised' => 'Kata sandi baru ini terdeteksi pernah bocor di internet. Silakan gunakan kata sandi lain demi keamanan.',
+            'password.min' => 'Kata sandi minimal 8 karakter.',
+            'password.mixed' => 'Kata sandi harus mengandung campuran huruf besar dan kecil.',
+            'password.numbers' => 'Kata sandi harus mengandung angka.',
+            'email.unique' => 'Email ini sudah digunakan oleh akun lain.',
         ]);
 
         $data = [

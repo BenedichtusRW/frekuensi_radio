@@ -12,9 +12,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('monitorings', function (Blueprint $table) {
-            $table->index('user_id');
-            $table->index(['user_id', 'tahun', 'bulan', 'tanggal', 'jam_mulai', 'id'], 'idx_user_sort_composite');
-            $table->index(['user_id', 'kategori', 'tahun', 'bulan', 'tanggal'], 'idx_user_kategori_sort');
+            $table->index('user_id', 'idx_monitorings_user_id');
+            $table->index(['user_id', 'tahun', 'bulan', 'tanggal', 'jam_mulai', 'id'], 'idx_monitorings_user_sort_composite');
+            $table->index(['user_id', 'kategori', 'tahun', 'bulan', 'tanggal'], 'idx_monitorings_user_kategori_sort');
         });
     }
 
@@ -24,9 +24,9 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('monitorings', function (Blueprint $table) {
-            $table->dropIndex(['user_id']);
-            $table->dropIndex('idx_user_sort_composite');
-            $table->dropIndex('idx_user_kategori_sort');
+            $table->dropIndex('idx_monitorings_user_id');
+            $table->dropIndex('idx_monitorings_user_sort_composite');
+            $table->dropIndex('idx_monitorings_user_kategori_sort');
         });
     }
 };

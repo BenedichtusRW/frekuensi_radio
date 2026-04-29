@@ -19,8 +19,7 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout')->middl
 // Protected Monitoring Routes
 Route::middleware(['auth', 'no-cache', 'check-active'])->group(function () {
     
-    // Halaman Lengkapi Profil (Bebas dari Check-Profile Middleware untuk mencegah Infinite Loop)
-    Route::get('/complete-profile', [\App\Http\Controllers\ProfileController::class, 'showCompleteProfile'])->name('profile.complete');
+    // Route khusus POST untuk menyimpan data profil (tanpa halaman terpisah)
     Route::post('/complete-profile', [\App\Http\Controllers\ProfileController::class, 'storeCompleteProfile'])->name('profile.store');
 
     Route::middleware(['check-profile'])->group(function () {

@@ -147,7 +147,7 @@
                 </div>
                 <div class="card-body py-2">
                     <div style="height: 240px;">
-                        <canvas id="barChart"></canvas>
+                        <canvas id="barChart" data-chart="{{ json_encode($barChart ?? ['labels' => [], 'datasets' => []]) }}"></canvas>
                     </div>
                 </div>
             </div>
@@ -161,7 +161,7 @@
                 </div>
                 <div class="card-body py-2">
                     <div style="height: 240px;">
-                        <canvas id="monthlyChart"></canvas>
+                        <canvas id="monthlyChart" data-chart="{{ json_encode($monthlyChart ?? ['labels' => [], 'datasets' => [], 'year' => '']) }}"></canvas>
                     </div>
                 </div>
             </div>
@@ -189,6 +189,7 @@
                                     <th class="py-2 text-dark font-bold text-uppercase tracking-wider" style="font-size: 0.55rem;">Tahun</th>
                                     <th class="py-2 text-dark font-bold text-uppercase tracking-wider" style="font-size: 0.55rem;">Bulan</th>
                                     <th class="py-2 text-dark font-bold text-uppercase tracking-wider" style="font-size: 0.55rem;">Tanggal</th>
+                                    <th class="py-2 text-dark font-bold text-uppercase tracking-wider" style="font-size: 0.55rem;">Petugas</th>
                                 </tr>
                             </thead>
                             <tbody class="border-0">
@@ -234,6 +235,24 @@
                                             @endphp
                                         </td>
                                         <td class="text-dark font-medium" style="font-size: 0.65rem;">{{ str_pad($monitoring->tanggal, 2, '0', STR_PAD_LEFT) }}</td>
+                                        <td class="px-3">
+                                            <div class="d-flex align-items-center gap-2">
+                                                @if($monitoring->user && $monitoring->user->profile_photo)
+                                                    <img src="{{ asset('storage/' . $monitoring->user->profile_photo) }}" 
+                                                         class="avatar-circle-sm" 
+                                                         title="Klik untuk lihat foto"
+                                                         onclick="viewFullAvatar(this.src, '{{ addslashes($monitoring->user->name) }}')">
+                                                @else
+                                                    <div class="avatar-circle-sm d-flex align-items-center justify-content-center bg-slate-100 text-slate-400" 
+                                                         style="font-size: 0.6rem; font-weight: 800; cursor: default;">
+                                                        {{ strtoupper(substr($monitoring->user->name ?? '?', 0, 1)) }}
+                                                    </div>
+                                                @endif
+                                                <span class="fw-bold {{ ($monitoring->user->role ?? '') === 'super_admin' ? 'text-blue-600' : 'text-slate-700' }}" style="font-size: 0.65rem;">
+                                                    {{ $monitoring->user->name ?? 'System' }}
+                                                </span>
+                                            </div>
+                                        </td>
                                     </tr>
                                 @empty
                                     <tr>
@@ -279,14 +298,17 @@
                 window.balmonMonthlyChart = null;
             }
 
-            const barData = @json($barChart ?? ['labels' => [], 'values' => []]);
-            const monthlyData = @json($monthlyChart ?? ['labels' => [], 'values' => [], 'year' => '']);
+            // Baca data dari attribute data-chart yang diperbarui Livewire
+            let barData = { labels: [], datasets: { mf: [], rutin: [], nelayan: [] } };
+            let monthlyData = { labels: [], datasets: { mf: [], rutin: [], nelayan: [] }, year: '' };
+            try { barData = JSON.parse(barCanvas.getAttribute('data-chart')); } catch(e) {}
+            try { monthlyData = JSON.parse(monthlyCanvas.getAttribute('data-chart')); } catch(e) {}
             const corporateColor = '#0f172a';
 
             const chartDefaults = {
                 responsive: true,
                 maintainAspectRatio: false,
-                animation: { duration: 400 },
+                animation: false, // Dimatikan agar tidak ada efek "kedip naik turun" saat navigasi SPA
                 interaction: { mode: 'index', intersect: false },
                 plugins: {
                     legend: {

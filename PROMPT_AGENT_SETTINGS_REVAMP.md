@@ -7,6 +7,7 @@ Tugas: Merombak halaman Pengaturan (resources/views/settings.blade.php) dari tam
 
 ---
 
+
 ## 📋 CURRENT STATE (Sekarang)
 
 File: resources/views/settings.blade.php

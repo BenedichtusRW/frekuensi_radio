@@ -375,25 +375,9 @@
             transform: translate3d(0, 0, 0) !important;
         }
 
-        /* Hardware Level Lock on Main Content - only during navigation transitions */
+        /* Hardware Level Lock on Main Content - Instant Snap Navigation */
         .main-content {
-            will-change: auto; /* Safe default - avoids stacking context issues with fixed header */
-            transition: opacity 0.15s ease;
-        }
-
-        /* Global Navigation Progress Bar */
-        #nav-progress {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 3px;
-            background: linear-gradient(to right, #3b82f6, #60a5fa);
-            z-index: 9999;
-            transform: scaleX(0);
-            transform-origin: left;
-            transition: transform 0.4s ease;
-            display: none;
+            will-change: auto; 
         }
 
         .offcanvas-header {
@@ -415,6 +399,8 @@
         .offcanvas .nav-link.active {
             background: linear-gradient(135deg, rgba(79, 70, 229, 0.1), rgba(79, 70, 229, 0.05)) !important;
         }
+
+        /* (Removed logout overlay CSS) */
 
         /* Mobile Optimization: Less Boxy, More Flow */
         @media (max-width: 991.98px) {
@@ -697,6 +683,9 @@
         }
         .modal-premium-overlay.active { opacity: 1; pointer-events: auto; }
         
+        /* Ensure SweetAlert2 always appears above premium modals */
+        .swal2-container { z-index: 100000 !important; }
+        
         .modal-premium-container {
             width: 90%; max-width: 380px;
             transform: scale(0.92); transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -770,10 +759,73 @@
             font-weight: 600 !important;
             font-size: 0.85rem !important;
         }
+
+        /* Global Avatar View Overlay (WhatsApp Style) */
+        .avatar-view-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px); z-index: 10000;
+            display: none; align-items: center; justify-content: center;
+            opacity: 0; transition: all 0.25s ease; cursor: pointer;
+        }
+        .avatar-view-overlay.active { display: flex; opacity: 1; }
+        .avatar-wa-card {
+            width: min(320px, 90vw); background: #ffffff; border-radius: 0;
+            overflow: hidden; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            transform: scale(0.85); transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative; cursor: default;
+        }
+        .avatar-view-overlay.active .avatar-wa-card { transform: scale(1); }
+        .avatar-wa-header {
+            position: absolute; top: 0; left: 0; width: 100%; padding: 12px 16px;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.5), transparent);
+            color: #ffffff; font-weight: 600; font-size: 0.95rem; z-index: 2;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .avatar-wa-img { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; display: block; }
+        .avatar-wa-actions {
+            height: 48px; display: flex; align-items: center; justify-content: space-around;
+            background: #ffffff; border-top: 1px solid #f1f5f9;
+        }
+        .wa-action-btn { background: none; border: none; color: #6366f1; padding: 8px; cursor: pointer; transition: opacity 0.2s; }
+        .wa-action-btn:hover { opacity: 0.7; }
+
+        /* Global Avatar Utility */
+        .avatar-circle, .avatar-circle-sm, .avatar-wa-img {
+            width: 38px; height: 38px; border-radius: 12px; object-fit: cover;
+            cursor: pointer; border: 2px solid #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            
+            /* ANTI-COLONG PROTECTION */
+            -webkit-user-drag: none;
+            -khtml-user-drag: none;
+            -moz-user-drag: none;
+            -o-user-drag: none;
+            user-select: none;
+            -webkit-user-select: none;
+            -ms-user-select: none;
+            pointer-events: auto; /* Ensure click still works */
+        }
+        .avatar-circle-sm { width: 24px; height: 24px; border-radius: 8px; border-width: 1.5px; }
+        .avatar-wa-img { width: 100%; height: auto; aspect-ratio: 1/1; border: none; border-radius: 0; box-shadow: none; cursor: default; }
+        
+        .avatar-circle:hover, .avatar-circle-sm:hover {
+            transform: scale(1.15) rotate(2deg);
+            box-shadow: 0 8px 20px -5px rgba(0, 0, 0, 0.15);
+            z-index: 10;
+        }
+
+        .avatar-placeholder {
+            width: 38px; height: 38px; border-radius: 12px;
+            background: #f8fafc; display: flex; align-items: center; justify-content: center;
+            color: #64748b; font-weight: 800; font-size: 0.85rem;
+            border: 2px solid #ffffff; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            cursor: default;
+        }
     </style>
 </head>
 
-<body>
+<body class="{{ $bodyClass ?? '' }}">
     {{-- Mobile Shield Overlay --}}
     <div id="mobile-shield">
         <div class="shield-icon">
@@ -790,8 +842,7 @@
         </div>
     </div>
 
-    <!-- Global Navigation Progress Bar -->
-    <div id="nav-progress"></div>
+
     
     @php
         $logoRelativePath = 'images/logo-balmon-lampung.jpg';
@@ -812,19 +863,19 @@
         <div class="sidebar-nav">
             <div class="nav-heading">Navigasi Utama</div>
             <nav class="nav flex-column">
-                <a href="{{ route('dashboard') }}" wire:navigate
+                <a href="{{ route('dashboard') }}" wire:navigate.hover
                     class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}">
                     <x-icon icon="dashboard" width="18" height="18" />
                     <span>Dashboard</span>
                 </a>
 
-                <a href="{{ route('monitoring.index') }}" wire:navigate
+                <a href="{{ route('monitoring.index') }}" wire:navigate.hover
                     class="nav-link {{ request()->routeIs('monitoring.index') || request()->routeIs('monitoring.edit') ? 'active' : '' }}">
                     <x-icon icon="daftar_laporan" width="18" height="18" />
                     <span>Daftar Laporan</span>
                 </a>
 
-                <a href="{{ route('settings') }}" wire:navigate
+                <a href="{{ route('settings') }}" wire:navigate.hover
                     class="nav-link {{ request()->routeIs('settings') ? 'active' : '' }}">
                     <x-icon icon="pengaturan" width="18" height="18" />
                     <span>Pengaturan</span>
@@ -833,7 +884,7 @@
         </div>
 
         <div class="sidebar-footer">
-            <form action="{{ route('logout') }}" method="POST">
+            <form id="logout-form" action="{{ route('logout') }}" method="POST" onsubmit="handleLogout(event)">
                 @csrf
                 <button type="submit" class="btn-logout">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
@@ -927,7 +978,8 @@
                             <div class="position-relative d-inline-block">
                                 <img src="{{ auth()->user()->profile_photo ? asset('storage/' . auth()->user()->profile_photo) : 'https://ui-avatars.com/api/?name=' . urlencode(auth()->user()->name) . '&background=6366f1&color=fff' }}" 
                                      id="modal-profile-preview" class="rounded-circle shadow-sm border border-4 border-white" 
-                                     style="width: 100px; height: 100px; object-fit: cover;">
+                                     style="width: 100px; height: 100px; object-fit: cover; cursor: pointer;"
+                                     onclick="viewFullAvatar(this.src, '{{ addslashes(auth()->user()->name) }}')">
                                 <button type="button" class="btn btn-primary rounded-circle position-absolute bottom-0 end-0 p-0 shadow-lg border-white border-2 d-flex align-items-center justify-content-center" 
                                         onclick="document.getElementById('modal-input-photo').click()" style="width: 32px; height: 32px;">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
@@ -955,8 +1007,8 @@
                             <label class="form-label text-blue-900 fw-bold small mb-1" style="font-size: 0.75rem;">Konfirmasi Sandi</label>
                             <div class="position-relative">
                                 <input type="password" name="current_password" class="form-control bg-white border-0 rounded-3 shadow-sm py-2 px-3 with-toggle" required placeholder="Sandi saat ini" style="font-size: 0.85rem;">
-                                <button type="button" class="password-toggle" onclick="togglePassword(this)">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="eye-icon"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                                <button type="button" class="password-toggle" onclick="togglePassword(this)" style="position: absolute; right: 1rem; top: 50%; transform: translateY(-50%); border: none; background: transparent; padding: 0; outline: none; box-shadow: none;">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="eye-icon"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                                 </button>
                             </div>
                         </div>
@@ -1440,44 +1492,60 @@
             }
             toggleBackdrop(false);
             cleanUpBackdrops();
-
-            // Progress Bar Start
-            const prog = document.getElementById('nav-progress');
-            if (prog) {
-                prog.style.display = 'block';
-                setTimeout(() => prog.style.transform = 'scaleX(0.7)', 10);
-            }
-
-            // RAM Relief: Hide old content to free resources for new page hydration
-            const main = document.querySelector('.main-content');
-            if (main) main.style.opacity = '0';
         });
 
         document.addEventListener('livewire:navigated', function() {
             cleanUpBackdrops();
             initSidebarLogic();
 
-            // Progress Bar Finish
-            const prog = document.getElementById('nav-progress');
-            if (prog) {
-                prog.style.transform = 'scaleX(1)';
-                setTimeout(() => {
-                    prog.style.display = 'none';
-                    prog.style.transform = 'scaleX(0)';
-                }, 300);
-            }
-
-            // RAM Relief: Reveal new content
-            const main = document.querySelector('.main-content');
-            if (main) {
-                main.style.opacity = '1';
-                // Trigger chart visibility if on dashboard
-                if (window.initDashboardCharts) window.initDashboardCharts();
-            }
+            // Trigger chart visibility if on dashboard
+            if (window.initDashboardCharts) window.initDashboardCharts();
         });
 
-        document.addEventListener('DOMContentLoaded', initSidebarLogic);
+        async function handleLogout(e) {
+            e.preventDefault();
+            const form = e.target;
+            const btn = form.querySelector('button[type="submit"]');
+            const originalBtnHtml = btn ? btn.innerHTML : '';
+            
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span><span>Keluar...</span>';
+            }
+            
+            try {
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
 
+                const data = await response.json();
+
+                if (response.ok && data.redirect) {
+                    window.location.href = data.redirect;
+                } else {
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = originalBtnHtml;
+                    }
+                    Swal.fire({ icon: 'error', title: 'Gagal Keluar', text: 'Sesi gagal dihapus.' });
+                }
+            } catch (error) {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = originalBtnHtml;
+                }
+                Swal.fire({ icon: 'error', title: 'Kesalahan', text: 'Terjadi kesalahan jaringan.' });
+            }
+        }
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', initSidebarLogic);
+        
         // Close sidebar if window resized to desktop
         window.addEventListener('resize', function() {
             if (window.innerWidth >= 992) {
@@ -1488,6 +1556,30 @@
                 }
             }
         });
+    </script>
+    <script>
+        // Global Avatar Functions
+        window.viewFullAvatar = function(src, name) {
+            const overlay = document.getElementById('avatar-view-overlay');
+            const img = document.getElementById('avatar-large-img');
+            const nameEl = document.getElementById('avatar-wa-name');
+            if (!overlay || !img) return;
+            img.src = src;
+            nameEl.innerText = name || 'Profile';
+            overlay.classList.add('active');
+            document.body.classList.add('modal-open');
+        };
+        window.closeFullAvatar = function() {
+            const overlay = document.getElementById('avatar-view-overlay');
+            if (!overlay) return;
+            overlay.classList.remove('active');
+            document.body.classList.remove('modal-open');
+            // Paksa kursor kembali normal (Anti-Kursor Detektif)
+            document.body.style.cursor = 'default';
+            setTimeout(() => {
+                document.body.style.cursor = '';
+            }, 50);
+        };
     </script>
     {{-- Script anti-jump dihapus karena akar masalah CSS (height 100%) sudah diperbaiki --}}
     <!-- Global Custom Confirm Modal -->
@@ -1510,5 +1602,147 @@
             </div>
         </div>
     </div>
+
+    <!-- WHATSAPP STYLE AVATAR VIEW -->
+    <div id="avatar-view-overlay" class="avatar-view-overlay" onclick="closeFullAvatar()">
+        <div class="avatar-wa-card" onclick="event.stopPropagation()">
+            <div class="avatar-wa-header">
+                <span id="avatar-wa-name">Profile</span>
+            </div>
+            <img id="avatar-large-img" src="" alt="Full Avatar" class="avatar-wa-img">
+            <div class="avatar-wa-actions">
+                <button class="wa-action-btn" title="Tutup" onclick="closeFullAvatar()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    @php
+        $authUser = auth()->user();
+        $isProfileIncomplete = $authUser && $authUser->role !== 'super_admin' && 
+            (preg_match('/^Admin\s*\d*$/i', $authUser->name) || !$authUser->profile_photo);
+    @endphp
+
+    @if($isProfileIncomplete)
+    <div class="complete-profile-overlay active">
+        <div class="complete-profile-modal">
+            <div class="complete-profile-header">
+                <div class="shield-icon-wrap mb-3 mx-auto" style="width: 56px; height: 56px; background: linear-gradient(135deg, #eff6ff, #dbeafe); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                </div>
+                <h4 class="fw-bold" style="color: #0f172a; margin-bottom: 0.5rem;">Verifikasi Identitas</h4>
+                <p style="color: #64748b; font-size: 0.85rem; margin-bottom: 1.5rem;">Silakan lengkapi identitas Anda untuk dapat mengakses seluruh fitur sistem.</p>
+            </div>
+            
+            <form action="{{ route('profile.store') }}" method="POST" enctype="multipart/form-data" id="complete-profile-form">
+                @csrf
+                <div class="mb-3 text-start">
+                    <label class="form-label" style="font-size: 0.75rem; font-weight: 700; color: #64748b; letter-spacing: 0.05em;">NAMA LENGKAP</label>
+                    <input type="text" name="name" class="form-control premium-input" value="{{ old('name', preg_match('/^Admin\s*\d*$/i', $authUser->name) ? '' : $authUser->name) }}" placeholder="Masukkan nama asli Anda" required>
+                    @error('name') <span class="text-danger" style="font-size: 0.75rem;">{{ $message }}</span> @enderror
+                </div>
+
+                <div class="mb-4 text-start">
+                    <label class="form-label" style="font-size: 0.75rem; font-weight: 700; color: #64748b; letter-spacing: 0.05em;">FOTO PROFIL</label>
+                    <div class="photo-upload-area" id="photo-upload-area" onclick="document.getElementById('profile_photo').click()">
+                        <div id="photo-preview" class="d-none">
+                            <img src="" alt="Preview" style="max-width: 100%; max-height: 140px; border-radius: 8px; object-fit: cover;">
+                        </div>
+                        <div id="photo-placeholder">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mb-2"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                            <p style="margin: 0; font-size: 0.85rem; font-weight: 600; color: #475569;">Pilih foto</p>
+                            <p style="margin: 0; font-size: 0.7rem; color: #94a3b8;">Maksimal Kapasitas: 1MB</p>
+                        </div>
+                        <input type="file" name="profile_photo" id="profile_photo" class="d-none" accept="image/*" required onchange="previewProfilePhoto(this)">
+                    </div>
+                    @error('profile_photo') <span class="text-danger" style="font-size: 0.75rem;">{{ $message }}</span> @enderror
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100 fw-bold py-2 mb-3" style="border-radius: 0.75rem; background: linear-gradient(135deg, #2563eb, #1d4ed8); border: none; box-shadow: 0 4px 12px rgba(37,99,235,0.2);">Simpan Perubahan</button>
+            </form>
+
+            <form action="{{ route('logout') }}" method="POST" class="mt-2">
+                @csrf
+                <button type="submit" class="btn btn-outline-danger w-100 fw-bold py-2 d-flex align-items-center justify-content-center" style="border-radius: 0.75rem; background: #fff1f2; border-color: #fecdd3; color: #e11d48; transition: all 0.2s;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="me-2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                    Keluar Sistem
+                </button>
+            </form>
+        </div>
+    </div>
+    <style>
+        /* CSS to Blur Main Content */
+        .sidebar-desktop, .sidebar-mobile, .topbar, .main-content {
+            filter: blur(8px);
+            pointer-events: none;
+            user-select: none;
+        }
+        body { overflow: hidden; }
+        
+        .complete-profile-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15, 23, 42, 0.4);
+            z-index: 99999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+        }
+        .complete-profile-modal {
+            background: #fff;
+            border-radius: 1.5rem;
+            padding: 2.5rem;
+            width: 100%;
+            max-width: 420px;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+            text-align: center;
+            animation: modalPopUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes modalPopUp {
+            from { transform: scale(0.9); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        .premium-input {
+            padding: 0.75rem 1rem;
+            border-radius: 0.75rem;
+            border: 1px solid #e2e8f0;
+            background: #f8fafc;
+            font-weight: 500;
+        }
+        .premium-input:focus {
+            background: #fff;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+        }
+        .photo-upload-area {
+            border: 2px dashed #cbd5e1;
+            border-radius: 1rem;
+            padding: 1.5rem;
+            text-align: center;
+            cursor: pointer;
+            background: #f8fafc;
+            transition: all 0.2s;
+        }
+        .photo-upload-area:hover {
+            border-color: #94a3b8;
+            background: #f1f5f9;
+        }
+    </style>
+    <script>
+        function previewProfilePhoto(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('photo-preview').classList.remove('d-none');
+                    document.getElementById('photo-placeholder').classList.add('d-none');
+                    document.getElementById('photo-preview').querySelector('img').src = e.target.result;
+                }
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+    </script>
+    @endif
 </body>
 </html>

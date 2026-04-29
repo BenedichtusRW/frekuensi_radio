@@ -7,126 +7,175 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
 use App\Models\ActivityLog;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Auth\Events\PasswordReset;
 
+use App\Traits\LogsActivity;
+
 class AuthController extends Controller
 {
+    use LogsActivity;
     /**
      * Show the login form.
      */
-    public function showLogin(): View | RedirectResponse
+    public function showLogin(Request $request): View | RedirectResponse
     {
         if (Auth::check()) {
             return redirect()->intended(route('dashboard'));
         }
 
-        // Server-side 2FA detection — no AJAX needed
-        $admin = \App\Models\User::first();
-        $has2fa = $admin && $admin->two_factor_enabled && !empty($admin->google2fa_secret);
-        $adminEmail = $admin ? $admin->email : '';
+        // Cek apakah ada SEMBARANG user yang punya 2FA aktif di database
+        $any2fa = \App\Models\User::where('two_factor_enabled', true)
+            ->whereNotNull('google2fa_secret')
+            ->where('is_active', true)
+            ->exists();
 
-        return view('auth.login', [
-            'has2fa' => $has2fa,
-            'adminEmail' => $adminEmail,
-        ]);
+        // Jika tidak ada sama sekali user yang pakai 2FA, paksa kembali ke mode email (meskipun ada cookie lama)
+        if (!$any2fa) {
+            $loginPreference = 'email';
+        } else {
+            // Cek cookie preferensi login dari browser ini
+            $loginPreference = $request->cookie('login_preference', 'email');
+            
+            // Jika sedang dalam proses 2-step (browser baru)
+            if (session('show_2fa_step2')) {
+                $loginPreference = '2fa';
+            }
+        }
+
+        return view('auth.login', ['loginPreference' => $loginPreference]);
     }
 
     /**
      * Handle authentication attempt.
      */
-    public function authenticate(Request $request): RedirectResponse
+    public function authenticate(Request $request)
     {
+        Log::info('Login attempt started', ['email' => $request->email]);
+        $throttleKey = 'login|' . $request->ip();
+
+        if (RateLimiter::tooManyAttempts($throttleKey, 5)) {
+            $seconds = RateLimiter::availableIn($throttleKey);
+            return back()->withErrors(['email' => 'Terlalu banyak percobaan. Coba lagi dalam ' . $seconds . ' detik.']);
+        }
+
+        // ==========================================
+        // JALUR 1: BROWSER SUDAH INGAT 2FA (Passwordless) ATAU STEP 2 DARI BROWSER BARU
+        // ==========================================
+        if ($request->filled('two_factor_code')) {
+            $request->validate(['two_factor_code' => 'required|digits:6']);
+            $google2fa = new \PragmaRX\Google2FA\Google2FA();
+            
+            $usersWith2fa = \App\Models\User::where('two_factor_enabled', true)
+                ->whereNotNull('google2fa_secret')
+                ->where('is_active', true)
+                ->get();
+
+            foreach ($usersWith2fa as $user) {
+                if ($google2fa->verifyKey($user->google2fa_secret, $request->two_factor_code)) {
+                    Auth::login($user, $request->boolean('remember', session('remember_me', false)));
+                    RateLimiter::clear($throttleKey);
+                    $request->session()->regenerate();
+                    
+                    // Tanamkan cookie bahwa browser ini milik user 2FA
+                    if ($request->ajax()) {
+                        return response()->json([
+                            'success' => true,
+                            'redirect' => route('dashboard'),
+                            'message' => 'Autentikasi berhasil!'
+                        ])->withCookie(cookie()->forever('login_preference', '2fa'));
+                    }
+                    $this->logActivity($request, 'login_success', 'Login berhasil melalui verifikasi 2FA.');
+                    return redirect()->intended(route('dashboard'))->withCookie(cookie()->forever('login_preference', '2fa'));
+                }
+            }
+
+            RateLimiter::hit($throttleKey, 60);
+            $this->logActivity($request, 'failed_2fa', 'Percobaan login 2FA gagal (kode salah).');
+
+            if ($request->ajax()) {
+                return response()->json(['success' => false, 'message' => 'Kode autentikasi salah.'], 422);
+            }
+
+            return back()->withErrors(['two_factor_code' => 'Kode autentikasi salah.'])->with('show_2fa_step2', true);
+        }
+
+        // ==========================================
+        // JALUR 2: BROWSER BELUM KENAL / TIDAK PAKAI 2FA
+        // ==========================================
         $request->validate([
             'email' => ['required', 'email'],
+            'password' => ['required'],
         ]);
 
         $email = $request->input('email');
         $user = \App\Models\User::where('email', $email)->first();
 
         if (!$user) {
+            RateLimiter::hit($throttleKey, 60);
             return back()->withErrors(['email' => 'Akun tidak ditemukan.'])->onlyInput('email');
         }
 
-        // SECURITY CHECK: Pastikan akun aktif
         if (!$user->is_active) {
-            $this->logSuspiciousActivity($request, 'blocked_login', 'Percobaan login ke akun nonaktif: ' . $email);
-            return back()->withErrors(['email' => 'Akun Anda telah dinonaktifkan. Silakan hubungi Super Admin.']);
+            $this->logActivity($request, 'suspicious_access', 'Percobaan login ke akun nonaktif: ' . $email);
+            return back()->withErrors(['email' => 'Akun dinonaktifkan.']);
         }
 
-        $throttleKey = Str::lower($email) . '|' . $request->ip();
-
-        if (RateLimiter::tooManyAttempts($throttleKey, 5)) {
-            $this->logSuspiciousActivity($request, 'brute_force_detected', 'Terdeteksi percobaan brute force pada email: ' . $email);
-            $seconds = RateLimiter::availableIn($throttleKey);
-            return back()->withErrors(['email' => 'Terlalu banyak percobaan. Coba lagi dalam ' . $seconds . ' detik.']);
-        }
-
-        // Logic 2FA Aktif (Hanya Kode, Tanpa Password sesuai permintaan)
-        if ($user->two_factor_enabled && !empty($user->google2fa_secret)) {
-            $request->validate(['two_factor_code' => 'required|digits:6']);
+        // Cek Password
+        if (!Auth::validate(['email' => $email, 'password' => $request->password])) {
+            RateLimiter::hit($throttleKey, 60);
+            $this->logActivity($request, 'failed_login', 'Gagal login (password salah) untuk email: ' . $email);
             
-            $google2fa = new \PragmaRX\Google2FA\Google2FA();
-            $valid = $google2fa->verifyKey($user->google2fa_secret, $request->two_factor_code);
-
-            if ($valid) {
-                Auth::login($user, $request->boolean('remember'));
-                RateLimiter::clear($throttleKey);
-                $request->session()->regenerate();
-                return redirect()->intended(route('dashboard'));
+            if ($request->ajax()) {
+                return response()->json(['success' => false, 'message' => 'Email atau password salah.'], 422);
             }
 
-            RateLimiter::hit($throttleKey, 60);
-            $this->logSuspiciousActivity($request, 'failed_2fa', 'Kode 2FA salah untuk email: ' . $email);
-            return back()->withErrors(['two_factor_code' => 'Kode autentikasi salah.'])->onlyInput('email');
+            return back()->withErrors(['email' => 'Email atau password salah.'])->onlyInput('email');
         }
 
-        // Logic 2FA Mati (Email + Password Biasa)
-        $request->validate(['password' => 'required']);
-        if (Auth::attempt(['email' => $email, 'password' => $request->password], $request->boolean('remember'))) {
-            RateLimiter::clear($throttleKey);
-            $request->session()->regenerate();
-            return redirect()->intended(route('dashboard'));
+        // Jika password benar, cek apakah dia punya 2FA
+        if ($user->two_factor_enabled && !empty($user->google2fa_secret)) {
+            // Berarti ini browser baru! Arahkan ke form 2FA (Step 2)
+            if ($request->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'step2' => true,
+                    'email' => $email,
+                    'message' => 'Silakan masukkan kode 2FA.'
+                ]);
+            }
+
+            return back()->with([
+                'show_2fa_step2' => true,
+                'email_2fa' => $email,
+                'remember_me' => $request->boolean('remember')
+            ])->withInput();
         }
 
-        RateLimiter::hit($throttleKey, 60);
-        $this->logSuspiciousActivity($request, 'failed_login', 'Gagal login (password salah) untuk email: ' . $email);
-        return back()->withErrors(['email' => 'Email atau password salah.'])->onlyInput('email');
-    }
+        // Jika tidak punya 2FA, langsung login
+        Auth::login($user, $request->boolean('remember'));
+        RateLimiter::clear($throttleKey);
+        $request->session()->regenerate();
+        
+        $this->logActivity($request, 'login_success', 'Login berhasil (tanpa 2FA).');
 
-    private function logSuspiciousActivity(Request $request, string $action, string $description): void
-    {
-        ActivityLog::create([
-            'user_id' => null, // Suspicious usually means not logged in
-            'action' => $action,
-            'description' => $description,
-            'ip_address' => $request->ip(),
-            'browser' => $this->getBrowser($request->header('User-Agent')),
-            'platform' => $this->getPlatform($request->header('User-Agent')),
-        ]);
-    }
+        // Tanamkan cookie bahwa browser ini milik user Tanpa 2FA
+        $response = redirect()->intended(route('dashboard'))->withCookie(cookie()->forever('login_preference', 'email'));
 
-    private function getBrowser($userAgent): string
-    {
-        if (strpos($userAgent, 'MSIE') !== false) return 'Internet Explorer';
-        if (strpos($userAgent, 'Firefox') !== false) return 'Firefox';
-        if (strpos($userAgent, 'Chrome') !== false) return 'Chrome';
-        if (strpos($userAgent, 'Safari') !== false) return 'Safari';
-        if (strpos($userAgent, 'Opera') !== false) return 'Opera';
-        return 'Unknown';
-    }
+        if ($request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'redirect' => route('dashboard'),
+                'message' => 'Login berhasil! Mengalihkan...'
+            ])->withCookie(cookie()->forever('login_preference', 'email'));
+        }
 
-    private function getPlatform($userAgent): string
-    {
-        if (strpos($userAgent, 'Windows') !== false) return 'Windows';
-        if (strpos($userAgent, 'Linux') !== false) return 'Linux';
-        if (strpos($userAgent, 'Macintosh') !== false) return 'Mac';
-        if (strpos($userAgent, 'iPhone') !== false) return 'iOS';
-        if (strpos($userAgent, 'Android') !== false) return 'Android';
-        return 'Unknown';
+        return $response;
     }
 
     /**
@@ -145,13 +194,27 @@ class AuthController extends Controller
         $request->validate([
             'token' => 'required',
             'email' => 'required|email',
-            'password' => 'required|min:8|confirmed',
+            'password' => [
+                'required',
+                'confirmed',
+                \Illuminate\Validation\Rules\Password::min(8)
+                    ->mixedCase()
+                    ->numbers()
+                    ->uncompromised(),
+            ],
+        ], [
+            'password.uncompromised' => 'Kata sandi ini terdeteksi pernah bocor di internet. Silakan gunakan kata sandi lain demi keamanan Anda.',
+            'password.confirmed' => 'Konfirmasi kata sandi tidak cocok.',
+            'password.min' => 'Kata sandi minimal harus 8 karakter.',
+            'password.mixed' => 'Kata sandi harus mengandung campuran huruf besar dan kecil.',
+            'password.numbers' => 'Kata sandi harus mengandung angka.',
+            'password.required' => 'Kata sandi wajib diisi.',
         ]);
 
         // Pencegahan menggunakan password yang sama dengan yang lama
         $user = \App\Models\User::where('email', $request->email)->first();
         if ($user && Hash::check($request->password, $user->password)) {
-            return back()->withErrors(['password' => 'Masukkan kata sandi yang lain! Anda memasukkan kata sandi lama Anda.']);
+            return back()->withErrors(['password' => 'Masukkan kata sandi yang berbeda. Anda sedang menggunakan kata sandi yang sudah pernah digunakan sebelumnya.']);
         }
 
         $status = Password::broker()->reset(
@@ -175,12 +238,27 @@ class AuthController extends Controller
     /**
      * Log the user out.
      */
-    public function logout(Request $request): RedirectResponse
+    public function logout(Request $request)
     {
+        if (Auth::check()) {
+            $this->logActivity($request, 'logout', 'Pengguna keluar dari sistem.');
+        }
+
         Auth::logout();
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();
+
+        // Extra security: Clear all custom session data
+        $request->session()->flush();
+
+        if ($request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'redirect' => route('login'),
+                'message' => 'Logout berhasil. Sampai jumpa!'
+            ]);
+        }
 
         return redirect('/login');
     }

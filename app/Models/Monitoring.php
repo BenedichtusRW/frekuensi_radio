@@ -57,18 +57,23 @@ class Monitoring extends Model
     {
         $keys = [
             'dashboard_summary_stats',
-            'dashboard_barchart_stats_v2',
-            'dashboard_monthly_stats_v2',
+            'dashboard_pie_chart',
+            'dashboard_bar_chart',
+            'dashboard_monthly_chart',
+            'dashboard_recent_monitoring',
         ];
 
         foreach ($keys as $key) {
             // Hapus cache untuk keseluruhan (Super Admin default)
             \Illuminate\Support\Facades\Cache::forget("{$key}_all");
             
-            // Hapus cache untuk spesifik petugas ini (Admin / Super Admin yang memfilter)
+            // Hapus cache untuk spesifik petugas ini
             if ($this->user_id) {
                 \Illuminate\Support\Facades\Cache::forget("{$key}_user_{$this->user_id}");
             }
+            
+            // Hapus legacy keys tanpa suffix
+            \Illuminate\Support\Facades\Cache::forget($key);
         }
     }
 }
