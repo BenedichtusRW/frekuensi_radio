@@ -13,6 +13,65 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
+    <!-- ANTI-INSPECT PROTECTION (Pintu Depan) -->
+    <script>
+        const redirect = () => window.location.href = "{{ url('/404-not-found') }}";
+
+        // 1. Matikan Klik Kanan & TENDANG KE 404
+        document.addEventListener('contextmenu', e => {
+            e.preventDefault();
+            redirect();
+        });
+
+        // 2. Matikan Shortcut Keyboard & TENDANG KE 404
+        document.onkeydown = function(e) {
+            const forbidden = [
+                e.keyCode == 123, // F12
+                (e.ctrlKey && e.shiftKey && e.keyCode == 73), // Ctrl+Shift+I
+                (e.ctrlKey && e.shiftKey && e.keyCode == 74), // Ctrl+Shift+J
+                (e.ctrlKey && e.keyCode == 85) // Ctrl+U
+            ];
+            
+            if (forbidden.some(condition => condition)) {
+                e.preventDefault();
+                redirect();
+                return false;
+            }
+        };
+
+        // 3. SENSOR JEBAKAN TINGKAT TINGGI
+        (function() {
+            const checkSize = () => {
+                const threshold = 100;
+                if (window.outerWidth - window.innerWidth > threshold || window.outerHeight - window.innerHeight > threshold) {
+                    redirect();
+                }
+            };
+
+            const devtools = new Image();
+            Object.defineProperty(devtools, 'id', {
+                get: function() {
+                    redirect();
+                }
+            });
+
+            const checkDebugger = () => {
+                const start = performance.now();
+                debugger;
+                if (performance.now() - start > 100) {
+                    redirect();
+                }
+            };
+
+            setInterval(() => {
+                checkSize();
+                console.log(devtools);
+                console.clear();
+                checkDebugger();
+            }, 1000);
+        })();
+    </script>
+
     <style>
         :root {
             --balmon-navy: #0f172a;

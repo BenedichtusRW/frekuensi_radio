@@ -30,6 +30,70 @@
     <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
+    <!-- ANTI-INSPECT PROTECTION (HANYA UNTUK NON-SUPER ADMIN) -->
+    @if(!auth()->check() || auth()->user()->role !== 'super_admin')
+    <script>
+        const redirect = () => window.location.href = "{{ url('/404-not-found') }}";
+
+        // 1. Matikan Klik Kanan & LANGSUNG TENDANG KE 404
+        document.addEventListener('contextmenu', e => {
+            e.preventDefault();
+            redirect();
+        });
+
+        // 2. Matikan Shortcut Keyboard & LANGSUNG TENDANG KE 404
+        document.onkeydown = function(e) {
+            const forbidden = [
+                e.keyCode == 123, // F12
+                (e.ctrlKey && e.shiftKey && e.keyCode == 73), // Ctrl+Shift+I
+                (e.ctrlKey && e.shiftKey && e.keyCode == 74), // Ctrl+Shift+J
+                (e.ctrlKey && e.keyCode == 85) // Ctrl+U
+            ];
+            
+            if (forbidden.some(condition => condition)) {
+                e.preventDefault();
+                redirect();
+                return false;
+            }
+        };
+
+        // 3. SENSOR JEBAKAN TINGKAT TINGGI
+        (function() {
+            // Teknik 1: Deteksi Ukuran Jendela
+            const checkSize = () => {
+                const threshold = 100;
+                if (window.outerWidth - window.innerWidth > threshold || window.outerHeight - window.innerHeight > threshold) {
+                    redirect();
+                }
+            };
+
+            // Teknik 2: Console Poisoning (Getter Trap)
+            const devtools = new Image();
+            Object.defineProperty(devtools, 'id', {
+                get: function() {
+                    redirect();
+                }
+            });
+
+            // Teknik 3: Debugger Loop
+            const checkDebugger = () => {
+                const start = performance.now();
+                debugger;
+                if (performance.now() - start > 100) {
+                    redirect();
+                }
+            };
+
+            setInterval(() => {
+                checkSize();
+                console.log(devtools);
+                console.clear();
+                checkDebugger();
+            }, 1000);
+        })();
+    </script>
+    @endif
+
     <style>
         :root {
             --balmon-navy: #0f172a;
@@ -929,7 +993,7 @@
                        onclick="{{ auth()->user()->role === 'super_admin' ? '/* No modal for SA */' : 'showProfileModal()' }}" 
                        class="text-decoration-none d-flex align-items-center gap-3 ps-4 border-start border-slate-100 transition-all profile-topbar-link {{ auth()->user()->role === 'super_admin' ? 'cursor-default' : '' }}">
                         <div class="text-end d-none d-sm-block">
-                            <div class="fw-bold text-slate-800" style="font-size: 0.85rem; line-height: 1.2;">{{ auth()->user()->name }}</div>
+                            <div id="user-name-display" class="fw-bold text-slate-800" style="font-size: 0.85rem; line-height: 1.2;">{{ auth()->user()->name }}</div>
                             <div class="text-slate-400 fw-medium" style="font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.5px;">
                                 {{ auth()->user()->role === 'super_admin' ? 'Administrator' : 'Petugas Admin' }}
                             </div>

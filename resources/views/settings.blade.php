@@ -73,7 +73,6 @@
         <div id="settings-hub" style="display: none;">
             <div class="settings-hub">
                 <div class="settings-card" onclick="switchSettingsView('security')">
-                    <span class="status-badge">Aktif</span>
                     <div class="icon-box"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></div>
                     <h3>Keamanan Akun</h3>
                     <p>Ganti kata sandi dan atur autentikasi dua faktor (2FA).</p>
@@ -81,28 +80,24 @@
 
                 @if(auth()->user()->role === 'super_admin')
                     <div class="settings-card" onclick="switchSettingsView('logs')">
-                        <span class="status-badge">Aktif</span>
                         <div class="icon-box"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg></div>
                         <h3>Log Aktivitas</h3>
                         <p>Pantau riwayat audit dan login sistem.</p>
                     </div>
 
                     <div class="settings-card" onclick="switchSettingsView('threats')">
-                        <span class="status-badge">Aktif</span>
                         <div class="icon-box" style="color: #dc2626;"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="m12 8 4 4"></path><path d="m16 8-4 4"></path></svg></div>
                         <h3>Aktivitas Mencurigakan</h3>
                         <p>Deteksi percobaan brute force atau akses ilegal.</p>
                     </div>
 
                     <div class="settings-card" onclick="switchSettingsView('users')">
-                        <span class="status-badge">Aktif</span>
                         <div class="icon-box"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></div>
                         <h3>Kelola User</h3>
                         <p>Tambah anggota tim dan atur peran akun.</p>
                     </div>
 
                     <div class="settings-card" onclick="switchSettingsView('masterdata')">
-                        <span class="status-badge">Aktif</span>
                         <div class="icon-box" style="color: #0ea5e9;"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h14a2 2 0 0 0 2-2V7.5L14.5 2H6a2 2 0 0 0-2 2v4"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M2 15h10"></path><path d="m9 18 3-3-3-3"></path></svg></div>
                         <h3>Master Data</h3>
                         <p>Kelola daftar dropdown (Stasiun, Negara, dll).</p>
@@ -168,23 +163,26 @@
                     <div class="card border-0 shadow-sm rounded-3 h-100">
                         <div class="card-body p-4">
                             <h6 class="fw-bold text-navy mb-4">Pengaturan Akses</h6>
-                            <form onsubmit="updateSecurity(event)">
-                                <input type="hidden" name="name" value="{{ auth()->user()->name }}">
-                                
+                            <form onsubmit="updateSecurity(event)" novalidate>
+                                <div class="mb-4">
+                                    <label class="form-label small fw-bold text-slate-700">Nama Lengkap <span class="text-danger">* <small id="err-name" class="d-none fw-normal">(Wajib diisi)</small></span></label>
+                                    <input type="text" name="name" id="sec-name" class="form-control rounded-3 py-2 px-3 border bg-light bg-opacity-25" value="{{ auth()->user()->name }}" required style="font-size: 0.9rem; border-color: #dee2e6;">
+                                </div>
+
                                 @if(auth()->user()->role === 'super_admin')
                                 <div class="mb-4">
-                                    <label class="form-label small fw-bold text-slate-700">Email Utama <span class="text-danger">*</span></label>
-                                    <input type="email" name="email" class="form-control rounded-3 py-2 px-3 border bg-light bg-opacity-25" value="{{ auth()->user()->email }}" required style="font-size: 0.9rem; border-color: #dee2e6;">
-                                    <div class="text-slate-400 mt-1" style="font-size: 0.75rem;">Email resmi Balmon Lampung.</div>
+                                    <label class="form-label small fw-bold text-slate-700">Email Utama <span class="text-danger">* <small id="err-email" class="d-none fw-normal">(Wajib diisi)</small></span></label>
+                                    <input type="email" name="email" id="sec-email" class="form-control rounded-3 py-2 px-3 border bg-light bg-opacity-25" value="{{ auth()->user()->email }}" required style="font-size: 0.9rem; border-color: #dee2e6;">
+                                    <div class="small text-slate-400 mt-1" style="font-size: 0.7rem;">Email resmi Balmon Lampung.</div>
                                 </div>
                                 @else
-                                    <input type="hidden" name="email" value="{{ auth()->user()->email }}">
+                                <input type="hidden" name="email" value="{{ auth()->user()->email }}">
                                 @endif
 
                                 <div class="mb-4">
-                                    <label class="form-label small fw-bold text-slate-700">Kata Sandi Saat Ini <span class="text-danger">*</span></label>
+                                    <label class="form-label small fw-bold text-slate-700">Kata Sandi Saat Ini <span class="text-danger">* <small id="err-password" class="d-none fw-normal">(Wajib diisi)</small></span></label>
                                     <div class="input-group">
-                                        <input type="password" name="current_password" class="form-control rounded-start-3 py-2 px-3 border border-end-0 bg-light bg-opacity-25" required placeholder="Masukkan sandi lama" style="font-size: 0.9rem; border-color: #dee2e6;" autocomplete="new-password">
+                                        <input type="password" name="current_password" id="sec-password" class="form-control rounded-start-3 py-2 px-3 border border-end-0 bg-light bg-opacity-25" required placeholder="Masukkan sandi lama" style="font-size: 0.9rem; border-color: #dee2e6;" autocomplete="new-password">
                                         <button type="button" class="btn btn-white border border-start-0 text-slate-400 px-3" onclick="togglePassword(this)" style="border-color: #dee2e6;">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="eye-icon"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                                         </button>
@@ -246,16 +244,32 @@
                                     <tr>
                                         <td class="px-4 py-3">
                                             <div class="d-flex align-items-center gap-3">
-                                                @if($log->user && $log->user->role !== 'super_admin')
+                                                @if($log->user)
                                                     @if($log->user->profile_photo)
                                                         <img src="{{ asset('storage/' . $log->user->profile_photo) }}" class="avatar-circle" alt="Avatar" onclick="viewFullAvatar(this.src, '{{ addslashes($log->user->name) }}')">
                                                     @else
                                                         <div class="avatar-placeholder">{{ strtoupper(substr($log->user->name, 0, 1)) }}</div>
                                                     @endif
+                                                @else
+                                                    <div class="avatar-placeholder bg-secondary bg-opacity-10 text-secondary border-0"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg></div>
                                                 @endif
-                                                <div>
-                                                    <div class="fw-bold text-navy">{{ $log->user->name ?? 'System' }}</div>
-                                                    <div class="text-slate-400 small" style="font-size: 0.65rem;">{{ $log->created_at->format('d/m/Y H:i') }}</div>
+
+                                                <div class="flex-grow-1">
+                                                    <div class="fw-bold text-navy d-flex align-items-center gap-2" style="font-size: 0.8rem;">
+                                                        {{ $log->user->name ?? 'Sistem' }}
+                                                        @if($log->user)
+                                                            @if($log->user->role === 'super_admin')
+                                                                <span class="badge bg-primary bg-opacity-10 text-primary border-0 rounded-pill" style="font-size: 0.6rem; padding: 0.15rem 0.5rem;">Super Admin</span>
+                                                            @else
+                                                                <span class="badge bg-secondary bg-opacity-10 text-secondary border-0 rounded-pill" style="font-size: 0.6rem; padding: 0.15rem 0.5rem;">Admin Tim</span>
+                                                            @endif
+                                                        @endif
+                                                    </div>
+                                                    <div class="d-flex align-items-center gap-2 text-slate-400" style="font-size: 0.65rem;">
+                                                        <span>{{ $log->user->email ?? 'Automated' }}</span>
+                                                        <span>•</span>
+                                                        <span>{{ $log->created_at->format('d/m/Y H:i') }}</span>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </td>
@@ -357,7 +371,7 @@
 
                                                 {{-- Tombol Edit selalu ada untuk semua user --}}
                                                 <button class="btn btn-sm btn-outline-secondary rounded-3" 
-                                                        onclick="showUserModal({{ $u->id }}, '{{ $u->name }}', '{{ $u->email }}', '{{ $u->role }}')">
+                                                        onclick="showUserModal({{ $u->id }}, '{{ $u->name }}', '{{ $u->email }}', '{{ $u->role }}', {{ $u->two_factor_enabled ? 'true' : 'false' }})">
                                                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                                                 </button>
                                                 
@@ -386,15 +400,37 @@
         <div id="qr-modal" class="modal-premium-overlay">
             <div class="modal-premium-container">
                 <div class="modal-premium-content">
-                    <h5 class="fw-800 text-navy mb-4" style="font-size: 1.1rem;">Scan QR Code</h5>
-                    <div id="qr-code-placeholder" class="mb-4 p-3 bg-white d-inline-block rounded-4 border"></div>
-                    <div class="mb-4">
-                        <input type="text" id="setup-verification-code" class="form-control text-center fw-800" placeholder="000000" maxlength="6" style="font-size: 1.5rem; border-radius: 1rem;" autocomplete="one-time-code">
-                        <div class="text-slate-400 mt-2" style="font-size: 0.75rem;">Masukkan 6 digit kode dari aplikasi Google Authenticator.</div>
+                    <!-- STEP 1: BACKUP KEY (DITAMPILKAN DULU) -->
+                    <div id="2fa-step-1">
+                        <h5 class="fw-800 text-navy mb-3" style="font-size: 1.1rem;">Langkah 1: Simpan Kode Cadangan</h5>
+                        <p class="text-slate-500 mb-4" style="font-size: 0.8rem;">Salin dan simpan kode ini di tempat aman. Anda juga bisa menggunakan kode ini untuk <b>input manual</b> di aplikasi Authenticator jika tidak bisa scan QR.</p>
+                        
+                        <div class="mb-4 text-start bg-light p-3 rounded-4 border border-dashed">
+                            <label class="small fw-bold text-slate-500 mb-1 d-block">Kode Rahasia (Backup Key):</label>
+                            <div class="d-flex gap-2 align-items-center">
+                                <code id="2fa-secret-text" class="text-navy fw-bold" style="font-size: 1rem; letter-spacing: 1px;">XXXX-XXXX-XXXX-XXXX</code>
+                            </div>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-dark rounded-3 fw-bold py-2 shadow-sm" id="btn-copy-continue" onclick="copyAndContinue()">Salin & Lanjutkan</button>
+                            <button class="btn btn-link text-slate-400 text-decoration-none small" onclick="hideQrModal()">Batal</button>
+                        </div>
                     </div>
-                    <div class="d-grid gap-2">
-                        <button class="btn btn-dark rounded-3 fw-bold py-2 shadow-sm" id="btn-verify-setup" onclick="verify2faSetup()">Verifikasi & Aktifkan</button>
-                        <button class="btn btn-link text-slate-400 text-decoration-none small" onclick="hideQrModal()">Batal</button>
+
+                    <!-- STEP 2: QR CODE (DISEMBUNYIKAN SAMPAI KODE DISALIN) -->
+                    <div id="2fa-step-2" style="display: none;">
+                        <h5 class="fw-800 text-navy mb-4" style="font-size: 1.1rem;">Langkah 2: Scan QR Code</h5>
+                        <div id="qr-code-placeholder" class="mb-4 p-3 bg-white d-inline-block rounded-4 border"></div>
+                        
+                        <div class="mb-4">
+                            <input type="text" id="setup-verification-code" class="form-control text-center fw-800" placeholder="000000" maxlength="6" style="font-size: 1.5rem; border-radius: 1rem;" autocomplete="one-time-code" onkeyup="if(event.key === 'Enter') verify2faSetup()">
+                            <div class="text-slate-400 mt-2" style="font-size: 0.75rem;">Masukkan 6 digit kode dari aplikasi Google Authenticator.</div>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-dark rounded-3 fw-bold py-2 shadow-sm" id="btn-verify-setup" onclick="verify2faSetup()">Verifikasi & Aktifkan</button>
+                            <button class="btn btn-link text-slate-400 text-decoration-none small" onclick="hideQrModal()">Batal</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -414,7 +450,7 @@
                     <div class="text-danger mb-4" style="font-size: 0.75rem; font-weight: 600;">Seluruh perangkat authenticator akan diputus.</div>
                     
                     <div class="position-relative mb-4 text-start">
-                        <input type="password" id="reset2fa-password-input" class="form-control rounded-3 with-toggle py-2" placeholder="Masukkan kata sandi Anda" style="font-size: 0.95rem;">
+                        <input type="password" id="reset2fa-password-input" class="form-control rounded-3 with-toggle py-2" placeholder="Masukkan kata sandi Anda" style="font-size: 0.95rem;" onkeyup="if(event.key === 'Enter') submitReset2fa()">
                         <button type="button" class="password-toggle" onclick="togglePassword(this)">
                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="eye-icon"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                         </button>
@@ -462,10 +498,19 @@
                             <div id="password-hint" class="small text-slate-400 mt-1" style="font-size: 0.7rem;">* Kosongkan jika tidak ingin mengubah kata sandi.</div>
                         </div>
 
+                        <!-- Tombol Reset 2FA (Hanya muncul jika user pakai 2FA) -->
+                        <div id="reset-2fa-container" class="mb-4" style="display:none;">
+                            <div class="p-3 rounded-4 bg-rose-50 border border-rose-100 text-center">
+                                <p class="small text-slate-600 mb-3" style="font-size: 0.75rem;">Petugas ini sedang menggunakan Autentikasi 2 Faktor (2FA).</p>
+                                <button type="button" id="btn-reset-2fa-user" class="btn btn-outline-danger btn-sm rounded-3 fw-bold px-4 w-100" onclick="resetUser2fa()">Matikan Paksa 2FA (Reset)</button>
+                            </div>
+                        </div>
+
+                        <!-- Tombol Kirim Tautan Reset (Hanya muncul untuk sesama Super Admin) -->
                         <div id="reset-link-container" class="mb-4" style="display:none;">
                             <div class="p-3 rounded-4 bg-blue-50 border border-blue-100 text-center">
-                                <p class="small text-slate-600 mb-3" style="font-size: 0.75rem;">Kirimkan tautan resmi ke email pemilik akun ini agar mereka dapat mereset kata sandi secara mandiri.</p>
-                                <button type="button" id="btn-send-reset" class="btn btn-blue btn-sm rounded-3 fw-bold px-4" onclick="sendResetLink()">Kirim Tautan Reset</button>
+                                <p class="small text-slate-600 mb-3" style="font-size: 0.75rem;">Anda tidak dapat mengubah password Super Admin lain secara langsung. Kirimkan tautan reset ke email mereka.</p>
+                                <button type="button" id="btn-send-reset" class="btn btn-blue btn-sm rounded-3 fw-bold px-4 w-100" onclick="sendResetLink()">Kirim Tautan Reset Ke Email</button>
                             </div>
                         </div>
                         <div class="d-grid gap-2">
@@ -605,13 +650,20 @@
             if (target && hub) {
                 // Sembunyikan hub dan semua view lainnya
                 hub.style.display = 'none';
-                document.querySelectorAll('.view-container').forEach(v => v.style.display = 'none');
+                document.querySelectorAll('.view-container').forEach(v => {
+                    v.style.display = 'none';
+                    v.classList.remove('active');
+                });
                 
                 // Tampilkan target view
                 target.style.display = 'block';
+                target.classList.add('active');
                 
                 // Scroll ke paling atas
                 window.scrollTo(0, 0);
+
+                // Simpan ke memory agar saat refresh tidak hilang
+                sessionStorage.setItem('active_settings_view', viewName);
 
                 // Auto-load data jika menu master data
                 if (viewName === 'masterdata') {
@@ -621,16 +673,23 @@
         }
 
         function showSettingsHub() {
-            document.querySelectorAll('.view-container').forEach(v => v.style.display = 'none');
-            document.getElementById('settings-hub').style.display = 'block';
+            // Bersihkan memory saat kembali ke hub
+            sessionStorage.removeItem('active_settings_view');
             
+            document.querySelectorAll('.view-container').forEach(v => {
+                v.style.display = 'none';
+                v.classList.remove('active');
+            });
+            document.getElementById('settings-hub').style.display = 'grid';
             window.scrollTo(0, 0);
         }
 
-        // Jalankan otomatis saat halaman dimuat ulang (termasuk navigasi Livewire)
         function initSettingsNavigation() {
-            const hub = document.getElementById('settings-hub');
-            if (hub) {
+            const savedView = sessionStorage.getItem('active_settings_view');
+            // Cek apakah ada di memory DAN pastikan elemennya benar-benar ada di halaman (Proteksi RBAC)
+            if (savedView && document.getElementById('view-' + savedView)) {
+                switchSettingsView(savedView);
+            } else {
                 showSettingsHub();
             }
         }
@@ -680,6 +739,12 @@
 
                 if (response.ok) {
                     document.getElementById('qr-code-placeholder').innerHTML = data.svg;
+                    document.getElementById('2fa-secret-text').innerText = data.secret;
+                    
+                    // Pastikan balik ke Step 1
+                    document.getElementById('2fa-step-1').style.display = 'block';
+                    document.getElementById('2fa-step-2').style.display = 'none';
+                    
                     document.getElementById('qr-modal').classList.add('active');
                 } else {
                     Swal.fire({ icon: 'error', title: 'Gagal', text: data.message || 'Kata sandi salah.', iconColor: '#ef4444' });
@@ -815,8 +880,45 @@
 
         async function updateSecurity(e) {
             e.preventDefault();
-            const btn = document.getElementById('btn-update-security');
             const form = e.target;
+            const formData = new FormData(form);
+            
+            // Sembunyikan semua error dulu
+            document.querySelectorAll('[id^="err-"]').forEach(el => el.classList.add('d-none'));
+            document.querySelectorAll('.form-control').forEach(el => el.classList.remove('is-invalid'));
+
+            let hasError = false;
+
+            // Validasi Nama
+            if (!formData.get('name') || formData.get('name').trim() === '') {
+                document.getElementById('err-name').classList.remove('d-none');
+                document.getElementById('sec-name').classList.add('is-invalid');
+                hasError = true;
+            }
+
+            // Validasi Email (Khusus Super Admin)
+            const emailInput = document.getElementById('sec-email');
+            if (emailInput && (!formData.get('email') || formData.get('email').trim() === '')) {
+                document.getElementById('err-email').classList.remove('d-none');
+                emailInput.classList.add('is-invalid');
+                hasError = true;
+            }
+
+            // Validasi Password Konfirmasi
+            if (!formData.get('current_password') || formData.get('current_password').trim() === '') {
+                document.getElementById('err-password').classList.remove('d-none');
+                document.getElementById('sec-password').classList.add('is-invalid');
+                hasError = true;
+            }
+
+            if (hasError) {
+                // Scroll ke field pertama yang error
+                const firstError = document.querySelector('.is-invalid');
+                if (firstError) firstError.focus();
+                return;
+            }
+
+            const btn = document.getElementById('btn-update-security');
             btn.disabled = true; btn.textContent = 'Menyimpan...';
             
             try {
@@ -833,10 +935,18 @@
                 
                 if(response.ok) {
                     Swal.fire({ icon: 'success', title: 'Berhasil!', text: data.message, timer: 2000, showConfirmButton: false, iconColor: '#10b981' });
-                    // Ganti reload dengan update nama di navbar jika perlu
-                    if (document.getElementById('user-name-navbar')) {
-                        document.getElementById('user-name-navbar').innerText = formData.get('name');
+                    // Update nama di navbar secara instan
+                    const displayEl = document.getElementById('user-name-display');
+                    if (displayEl) {
+                        displayEl.innerText = formData.get('name');
                     }
+                    
+                    // Bersihkan kolom password setelah berhasil
+                    form.reset(); // Mereset semua field ke awal
+                    // Namun kita kembalikan nama dan email yang baru disimpan biar tetap tampil di form
+                    document.getElementById('sec-name').value = formData.get('name');
+                    const emailInput = document.getElementById('sec-email');
+                    if (emailInput) emailInput.value = formData.get('email');
                 } else {
                     let errorMsg = data.message;
                     if (data.errors) errorMsg = Object.values(data.errors).flat().join('\n');
@@ -872,73 +982,92 @@
     </style>
 
     <script>
-        function showUserModal(id = null, name = '', email = '', role = 'admin') {
+        function showUserModal(id = null, name = '', email = '', role = 'admin', twoFactorEnabled = false) {
+            document.getElementById('user-modal-title').textContent = id ? 'Edit Anggota Tim' : 'Tambah Anggota Tim';
             document.getElementById('user-id').value = id || '';
             document.getElementById('user-name').value = name;
             document.getElementById('user-email').value = email;
             document.getElementById('user-role').value = role;
             document.getElementById('user-password').value = '';
-            
-            // Tampilkan kolom nama jika:
-            // 1. Sedang EDIT (id ada)
-            // 2. Atau jika sedang TAMBAH tapi rolenya BUKAN super_admin
-            const container = document.getElementById('container-user-name');
-            const input = document.getElementById('user-name');
-            if (id || role !== 'super_admin') {
-                container.style.display = 'block';
-                input.required = true;
-                if (input.value === 'AUTO_GENERATED_SA') input.value = '';
-            } else {
-                container.style.display = 'none';
-                input.required = false;
-                input.value = 'AUTO_GENERATED_SA';
-            }
 
-            // Jika sedang edit Super Admin (bukan diri sendiri), kunci SEMUA field agar tidak bisa diubah sesama SA
+            const passwordHint = document.getElementById('password-hint');
+            const passwordAsterisk = document.getElementById('password-asterisk');
+            const reset2faContainer = document.getElementById('reset-2fa-container');
+            const resetLinkContainer = document.getElementById('reset-link-container');
+            const btnSave = document.getElementById('btn-save-user');
+            const passwordContainer = document.getElementById('container-user-password');
+            
             const roleSelect = document.getElementById('user-role');
             const nameInput = document.getElementById('user-name');
             const emailInput = document.getElementById('user-email');
-            const passwordInput = document.getElementById('user-password');
-            const passwordContainer = document.getElementById('container-user-password');
-            const resetLinkContainer = document.getElementById('reset-link-container');
 
-            const btnSave = document.getElementById('btn-save-user');
-            if (id && role === 'super_admin' && id != '{{ auth()->id() }}') {
-                roleSelect.disabled = true;
-                nameInput.disabled = true;
-                emailInput.disabled = true;
-                passwordContainer.style.display = 'none';
-                resetLinkContainer.style.display = 'block';
-                btnSave.style.display = 'none';
-            } else {
-                roleSelect.disabled = false;
-                nameInput.disabled = false;
-                emailInput.disabled = false;
-                passwordContainer.style.display = 'block';
-                resetLinkContainer.style.display = 'none';
-                btnSave.style.display = 'block';
-                passwordInput.placeholder = id ? 'Minimal 8 karakter (opsional)' : 'Minimal 8 karakter';
-            }
-            
+            // Reset States
+            roleSelect.disabled = false;
+            nameInput.disabled = false;
+            emailInput.disabled = false;
+            passwordContainer.style.display = 'block';
+            btnSave.style.display = 'block';
+            reset2faContainer.style.display = 'none';
+            resetLinkContainer.style.display = 'none';
+
             if (id) {
-                document.getElementById('user-modal-title').textContent = 'Edit Anggota Tim';
-                document.getElementById('btn-save-user').textContent = 'Perbarui Anggota';
-                document.getElementById('password-hint').style.display = 'block';
-                document.getElementById('password-asterisk').style.display = 'none';
-                document.getElementById('user-password').required = false;
+                passwordHint.style.display = 'block';
+                passwordAsterisk.style.display = 'none';
+                
+                // Tampilkan container reset 2FA HANYA jika fitur 2FA sedang aktif di akun tersebut
+                reset2faContainer.style.display = twoFactorEnabled ? 'block' : 'none';
+                
+                // Proteksi khusus: Jangan biarkan sesama Super Admin saling edit data sensitif (Termasuk Reset 2FA)
+                if (role === 'super_admin' && id != '{{ auth()->id() }}') {
+                    roleSelect.disabled = true;
+                    nameInput.disabled = true;
+                    emailInput.disabled = true;
+                    passwordContainer.style.display = 'none';
+                    btnSave.style.display = 'none';
+                    reset2faContainer.style.display = 'none'; // Sembunyikan Reset 2FA sesama SA
+                    resetLinkContainer.style.display = 'block'; // Tampilkan Link Reset Email sebagai gantinya
+                }
             } else {
-                document.getElementById('user-modal-title').textContent = 'Tambah Anggota Tim';
-                document.getElementById('btn-save-user').textContent = 'Simpan Anggota';
-                document.getElementById('password-hint').style.display = 'none';
-                document.getElementById('password-asterisk').style.display = 'inline';
-                document.getElementById('user-password').required = true;
+                passwordHint.style.display = 'none';
+                passwordAsterisk.style.display = 'inline';
             }
-            
+
+            toggleNameField(role);
             document.getElementById('user-modal').classList.add('active');
         }
 
         function hideUserModal() { document.getElementById('user-modal').classList.remove('active'); }
 
+        async function resetUser2fa() {
+            const id = document.getElementById('user-id').value;
+            const name = document.getElementById('user-name').value;
+            if (!id) return;
+
+            window.confirmSistem('Reset 2FA', `Apakah Anda yakin ingin mematikan paksa 2FA milik ${name}? Gunakan ini hanya jika petugas kehilangan akses ke perangkatnya.`, async function() {
+                try {
+                    const response = await fetch(`{{ url('users') }}/${id}/reset-2fa`, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                            'Accept': 'application/json'
+                        }
+                    });
+
+                    const data = await response.json();
+                    if (response.ok) {
+                        hideUserModal();
+                        Swal.fire({ icon: 'success', title: 'Berhasil!', text: data.message, iconColor: '#10b981' });
+                        // Refresh halaman agar state 2FA terbaru ter-update di tabel
+                        setTimeout(() => location.reload(), 1500);
+                    } else {
+                        Swal.fire({ icon: 'error', title: 'Gagal', text: data.message || 'Gagal mereset 2FA.', iconColor: '#ef4444' });
+                    }
+                } catch (err) {
+                    Swal.fire({ icon: 'error', title: 'Kesalahan Jaringan', text: 'Terjadi kesalahan jaringan.', iconColor: '#ef4444' });
+                }
+            });
+        }
+        
         async function saveUser(e) {
             e.preventDefault();
             const id = document.getElementById('user-id').value;
@@ -1372,5 +1501,28 @@
             checkMasterDataAutoLoad();
         });
 
+        function copyToClipboard(elementId) {
+            const text = document.getElementById(elementId).innerText;
+            return navigator.clipboard.writeText(text);
+        }
+
+        function copyAndContinue() {
+            copyToClipboard('2fa-secret-text').then(() => {
+                Swal.fire({ 
+                    icon: 'success', 
+                    title: 'Disalin!', 
+                    text: 'Kode cadangan berhasil disalin. Sekarang silakan scan QR Code.', 
+                    timer: 1500, 
+                    showConfirmButton: false, 
+                    iconColor: '#10b981' 
+                });
+                
+                // Transisi ke Step 2
+                document.getElementById('2fa-step-1').style.display = 'none';
+                const step2 = document.getElementById('2fa-step-2');
+                step2.style.display = 'block';
+                step2.style.animation = 'fadeIn 0.5s ease-out';
+            });
+        }
     </script>
 @endsection

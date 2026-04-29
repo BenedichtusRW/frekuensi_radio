@@ -217,4 +217,34 @@ class UserController extends Controller
             'message' => 'Gagal mengirim email reset. Pastikan konfigurasi SMTP benar.'
         ], 500);
     }
+
+    /**
+     * Reset 2FA for a user (Super Admin Only)
+     */
+    public function reset2fa(Request $request, User $user)
+    {
+        // Only Super Admin can trigger this
+        if (auth()->user()->role !== 'super_admin') {
+            return response()->json(['success' => false, 'message' => 'Unauthorized.'], 403);
+        }
+
+        // Prevent resetting 2FA for other Super Admins
+        if ($user->role === 'super_admin' && $user->id !== auth()->id()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Anda tidak dapat mereset 2FA sesama akun Super Admin.'
+            ], 403);
+        }
+
+        $user->google2fa_secret = null;
+        $user->two_factor_enabled = false;
+        $user->save();
+
+        $this->logActivity($request, 'reset_user_2fa', 'Mereset Autentikasi 2 Faktor milik: ' . $user->name);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Autentikasi 2 Faktor milik ' . $user->name . ' telah berhasil dinonaktifkan.'
+        ]);
+    }
 }

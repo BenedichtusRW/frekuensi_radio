@@ -57,6 +57,7 @@ Route::middleware(['auth', 'no-cache', 'check-active'])->group(function () {
                 Route::delete('/{user}', [\App\Http\Controllers\UserController::class, 'destroy'])->name('destroy');
                 Route::post('/{user}/toggle-status', [\App\Http\Controllers\UserController::class, 'toggleStatus'])->name('toggle-status');
                 Route::post('/{user}/reset-password', [\App\Http\Controllers\UserController::class, 'sendResetLink'])->name('reset-password');
+                Route::post('/{user}/reset-2fa', [\App\Http\Controllers\UserController::class, 'reset2fa'])->name('reset-2fa');
             });
 
             Route::prefix('master-data')->name('master-data.')->group(function () {

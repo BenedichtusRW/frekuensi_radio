@@ -532,19 +532,35 @@ class MonitoringController extends Controller
     {
         $parts = ['logbook'];
 
-        $kategori = trim((string) ($filters['kategori'] ?? ''));
-        if ($kategori === '') {
-            $parts[] = 'All';
+        // 1. Tambahkan Nama Petugas (Admin)
+        $userId = $filters['user_id'] ?? null;
+        if ($userId && $userId !== 'all' && $userId !== '') {
+            $user = \App\Models\User::find($userId);
+            $userName = $user ? $user->name : 'User';
+            // Bersihkan nama dari karakter aneh dan ganti spasi jadi underscore
+            $safeName = preg_replace('/[^A-Za-z0-9]+/', '_', $userName);
+            $parts[] = trim($safeName, '_');
         } else {
-            $safeKategori = preg_replace('/[\\\\\/:*?"<>|]+/', ' ', $kategori) ?? $kategori;
-            $parts[] = str_replace(' ', '_', trim($safeKategori));
+            $parts[] = 'SemuaAdmin';
         }
 
+        // 2. Tambahkan Kategori
+        $kategori = trim((string) ($filters['kategori'] ?? ''));
+        if ($kategori === '') {
+            $parts[] = 'SemuaKategori';
+        } else {
+            // Bersihkan nama kategori (misal: "HF Rutin" jadi "HF_Rutin")
+            $safeKategori = preg_replace('/[^A-Za-z0-9]+/', '_', $kategori);
+            $parts[] = trim($safeKategori, '_');
+        }
+
+        // 3. Tambahkan Detail Tanggal Filter (Misal: tgl01_bln04_thn2026)
         $datePart = $this->buildCsvDatePart($filters);
         if ($datePart !== null) {
             $parts[] = $datePart;
         }
 
+        // 4. Tambahkan Tanggal Download (Hari Ini)
         $parts[] = now()->format('Ymd');
 
         return implode('_', $parts) . '.' . $extension;
