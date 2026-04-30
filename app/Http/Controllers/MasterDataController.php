@@ -13,12 +13,36 @@ class MasterDataController extends Controller
     {
         $query = MasterData::query();
         
+        // Jangan tampilkan kategori konfigurasi sistem di tabel master data biasa
+        $query->where('category', '!=', 'system_config');
+
         if ($request->has('category')) {
             $query->where('category', $request->query('category'));
         }
         
         $data = $query->orderBy('value')->get();
         return response()->json($data);
+    }
+
+    public function getConfig(Request $request)
+    {
+        $key = $request->query('key');
+        if (!$key) return response()->json(['message' => 'Key required'], 400);
+
+        $config = MasterData::where('category', 'system_config')
+                            ->where('value', $key)
+                            ->first();
+        
+        // Jika belum ada, buat defaultnya (is_active = false berarti Dropdown Mode)
+        if (!$config) {
+            $config = MasterData::create([
+                'category' => 'system_config',
+                'value' => $key,
+                'is_active' => false 
+            ]);
+        }
+
+        return response()->json($config);
     }
 
     public function store(Request $request)
@@ -44,6 +68,8 @@ class MasterDataController extends Controller
             'value' => $normalizedValue,
             'is_active' => true,
         ]);
+
+        \Illuminate\Support\Facades\Cache::forget('laporan_dropdown_options');
 
         return response()->json([
             'message' => 'Opsi master data berhasil ditambahkan!',
@@ -74,6 +100,8 @@ class MasterDataController extends Controller
             'value' => $normalizedValue
         ]);
 
+        \Illuminate\Support\Facades\Cache::forget('laporan_dropdown_options');
+
         return response()->json([
             'message' => 'Opsi master data berhasil diperbarui!',
             'data' => $masterData
@@ -85,6 +113,8 @@ class MasterDataController extends Controller
         $masterData = MasterData::findOrFail($id);
         $masterData->delete();
 
+        \Illuminate\Support\Facades\Cache::forget('laporan_dropdown_options');
+
         return response()->json(['message' => 'Opsi berhasil dihapus.']);
     }
 
@@ -93,6 +123,8 @@ class MasterDataController extends Controller
         $masterData = MasterData::findOrFail($id);
         $masterData->is_active = !$masterData->is_active;
         $masterData->save();
+
+        \Illuminate\Support\Facades\Cache::forget('laporan_dropdown_options');
 
         return response()->json([
             'message' => $masterData->is_active ? 'Opsi diaktifkan.' : 'Opsi dinonaktifkan.',

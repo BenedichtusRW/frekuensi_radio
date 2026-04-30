@@ -458,8 +458,7 @@
                     <label class="form-label text-xs fw-medium text-slate-500 text-uppercase mb-1"
                         style="font-size: 0.65rem;">Petugas Admin</label>
                         <select name="user_id" class="form-select form-select-sm border-slate-200 rounded-3"
-                            style="font-size: 0.85rem; height: 36px; background-color: #f8fafc; min-width: 140px;"
-                            onchange="this.form.dispatchEvent(new Event('submit'))">
+                            style="font-size: 0.85rem; height: 36px; background-color: #f8fafc; min-width: 140px;">
                             <option value="">Semua Admin</option>
                             @foreach($users->where('role', '!=', 'super_admin') as $user)
                                 <option value="{{ $user->id }}" {{ (string)($filters['user_id'] ?? '') === (string)$user->id ? 'selected' : '' }}>
@@ -605,28 +604,82 @@
 
     <script>
         (function() {
-            // GLOBAL DELEGATION: Memastikan event jalan meskipun DOM berubah (AJAX/Livewire)
+            const filterForm = document.getElementById('laporanFilterForm');
+            const tableContainer = document.getElementById('laporan-table-container');
+
+            // FUNGSI UTAMA: Refresh Tabel Tanpa Reload (Mode Siluman)
+            window.refreshLaporanTable = async (customUrl = null) => {
+                if (!tableContainer) return;
+                
+                // Gunakan URL custom (misal dari pagination) atau URL filter saat ini
+                let url;
+                if (customUrl) {
+                    url = customUrl;
+                } else {
+                    const formData = new FormData(filterForm);
+                    const params = new URLSearchParams(formData).toString();
+                    url = filterForm.getAttribute('action') + '?' + params;
+                }
+
+                // Efek loading
+                tableContainer.style.opacity = '0.5';
+
+                try {
+                    const response = await fetch(url, {
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    });
+                    const html = await response.text();
+                    
+                    tableContainer.innerHTML = html;
+                    tableContainer.style.opacity = '1';
+
+                    // BERSIHKAN URL (Hide Params agar tetap profesional)
+                    window.history.replaceState({}, '', window.location.pathname);
+                    
+                } catch (error) {
+                    console.error('Refresh failed:', error);
+                    tableContainer.style.opacity = '1';
+                }
+            };
+
+            if (filterForm) {
+                // Intercept tombol submit (Filter)
+                filterForm.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    window.refreshLaporanTable();
+                });
+                
+                // Auto-refresh saat dropdown diganti (Category & Admin)
+                filterForm.querySelectorAll('select').forEach(el => {
+                    el.addEventListener('change', () => window.refreshLaporanTable());
+                });
+
+                // Export Button (Tetap kirim param lewat URL karena butuh download file)
+                const exportBtn = document.getElementById('exportLaporanBtn');
+                if (exportBtn) {
+                    const originalExportUrl = exportBtn.getAttribute('href').split('?')[0];
+                    exportBtn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        const formData = new FormData(filterForm);
+                        const params = new URLSearchParams(formData).toString();
+                        window.location.href = originalExportUrl + '?' + params;
+                    });
+                }
+            }
+
+            // GLOBAL DELEGATION: Detail Modal
             document.addEventListener('show.bs.modal', function(event) {
                 const modalId = event.target.id;
                 const button = event.relatedTarget;
-                if (!button) return;
+                if (!button || modalId !== 'detailLaporanModal') return;
 
-                if (modalId === 'detailLaporanModal') {
-                    const rowNum = button.getAttribute('data-row-number') || '';
-                    const payloadRaw = button.getAttribute('data-view-payload');
-                    
-                    if (!payloadRaw) return;
-                    
-                    let data = null;
-                    try {
-                        data = JSON.parse(payloadRaw);
-                    } catch (e) {
-                        console.error('Failed to parse view payload', e);
-                        return;
-                    }
-                    
+                const rowNum = button.getAttribute('data-row-number') || '';
+                const payloadRaw = button.getAttribute('data-view-payload');
+                if (!payloadRaw) return;
+                
+                try {
+                    const data = JSON.parse(payloadRaw);
                     document.getElementById('detailModalTitle').textContent = 'Detail Tabel No ' + rowNum;
-                    
                     const tbody = document.getElementById('detailModalContent');
                     tbody.innerHTML = `
                         <tr style="background-color: #fff;">
@@ -656,7 +709,7 @@
                             <td class="text-start" style="border: 1px solid #000;">${data.informasi_tambahan || '-'}</td>
                         </tr>
                     `;
-                }
+                } catch (e) { console.error('Payload parse error', e); }
             });
         })();
     </script>
@@ -695,10 +748,10 @@
                             <div class="col-md-4">
                                 <label class="form-label">Jenis Laporan <span class="text-danger">*</span></label>
                                 <select name="kategori" class="form-select" required>
-                                    <option value="" disabled hidden></option>
-                                    <option value="HF Nelayan">HF Nelayan</option>
-                                    <option value="HF Rutin">HF Rutin</option>
-                                    <option value="MF">HF Medium Frequency</option>
+                                    <option value="" disabled selected>Pilih Jenis Laporan...</option>
+                                    @foreach (($dropdownOptions['kategori'] ?? ['MF', 'HF Rutin', 'HF Nelayan']) as $cat)
+                                        <option value="{{ $cat }}">{{ $cat }}</option>
+                                    @endforeach
                                 </select>
                             </div>
                             <div class="col-md-4">
@@ -799,7 +852,18 @@
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Kelas Emisi <span class="text-danger">*</span></label>
-                                <input type="text" name="kelas_emisi" class="form-control" required>
+                                @if($dropdownOptions['config']['kelas_emisi_manual'] ?? false)
+                                    {{-- Mode Manual: Input Text Biasa --}}
+                                    <input type="text" name="kelas_emisi" class="form-control" required>
+                                @else
+                                    {{-- Mode Master Data: Dropdown --}}
+                                    <select name="kelas_emisi" class="form-select" required>
+                                        <option value="" disabled selected>Pilih Kelas Emisi...</option>
+                                        @foreach (($dropdownOptions['kelas_emisi'] ?? []) as $emisi)
+                                            <option value="{{ $emisi }}">{{ $emisi }}</option>
+                                        @endforeach
+                                    </select>
+                                @endif
                             </div>
 
                             <div class="col-md-2">
@@ -908,12 +972,11 @@
                                 <select id="editKategoriInput" name="kategori" class="form-select" required>
                                     <option value="" disabled hidden {{ $editSelectedKategori === '' ? 'selected' : '' }}>
                                     </option>
-                                    <option value="HF Nelayan" {{ $editSelectedKategori === 'HF Nelayan' ? 'selected' : '' }}>
-                                        HF Nelayan</option>
-                                    <option value="HF Rutin" {{ $editSelectedKategori === 'HF Rutin' ? 'selected' : '' }}>HF
-                                        Rutin</option>
-                                    <option value="MF" {{ $editSelectedKategori === 'MF' ? 'selected' : '' }}>HF Medium
-                                        Frequency</option>
+                                    @foreach (($dropdownOptions['kategori'] ?? ['MF', 'HF Rutin', 'HF Nelayan']) as $cat)
+                                        <option value="{{ $cat }}" {{ $editSelectedKategori === $cat ? 'selected' : '' }}>
+                                            {{ $cat }}
+                                        </option>
+                                    @endforeach
                                 </select>
                             </div>
                             <div class="col-md-4">
@@ -998,8 +1061,21 @@
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Kelas Emisi <span class="text-danger">*</span></label>
-                                <input id="editKelasEmisiInput" type="text" name="kelas_emisi" class="form-control"
-                                    value="{{ old('kelas_emisi', $editMonitoringData?->kelas_emisi ?? '') }}" required>
+                                @if($dropdownOptions['config']['kelas_emisi_manual'] ?? false)
+                                    {{-- Mode Manual: Input Text Biasa --}}
+                                    <input id="editKelasEmisiInput" type="text" name="kelas_emisi" class="form-control"
+                                        value="{{ old('kelas_emisi', $editMonitoringData?->kelas_emisi ?? '') }}" required>
+                                @else
+                                    {{-- Mode Master Data: Dropdown --}}
+                                    <select id="editKelasEmisiInput" name="kelas_emisi" class="form-select" required>
+                                        <option value="" disabled selected>Pilih Kelas Emisi...</option>
+                                        @foreach (($dropdownOptions['kelas_emisi'] ?? []) as $emisi)
+                                            <option value="{{ $emisi }}" {{ old('kelas_emisi', $editMonitoringData?->kelas_emisi ?? '') === $emisi ? 'selected' : '' }}>
+                                                {{ $emisi }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                @endif
                             </div>
                             <div class="col-md-2">
                                 <label class="form-label">Long (0-180)</label>
@@ -1434,63 +1510,60 @@
                 window.refreshLaporanTable();
             });
 
-            /* Tombol Hapus — Gunakan AJAX untuk menghindari perputaran/refresh */
+            // DELEGASI GLOBAL: Handle Klik Paginasi & Hapus (Agar tetap jalan setelah AJAX)
             document.addEventListener('click', async function(e) {
-                var btn = e.target.closest('[data-delete-id]');
-                if (!btn) return;
-                
-                window.confirmSistem('Hapus Laporan', 'Apakah Anda yakin ingin menghapus data laporan ini?', async function() {
-                    const deleteUrl = btn.getAttribute('data-delete-url');
+                // 1. Handle Paginasi
+                const paginationLink = e.target.closest('.pagination a');
+                if (paginationLink) {
+                    e.preventDefault();
+                    const url = paginationLink.href;
+                    if (url && url !== '#' && !url.includes('javascript')) {
+                        window.refreshLaporanTable(url);
+                    }
+                    return;
+                }
+
+                // 2. Handle Tombol Hapus (Single)
+                const deleteBtn = e.target.closest('.action-pill.delete');
+                if (deleteBtn) {
+                    e.preventDefault();
+                    const deleteUrl = deleteBtn.getAttribute('data-delete-url');
                     const token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
                     
-                    // Animasi loading pada baris yang dihapus
-                    const row = btn.closest('tr');
-                    row.style.opacity = '0.3';
-                    row.style.pointerEvents = 'none';
+                    window.confirmSistem('Hapus Data', 'Yakin ingin menghapus data ini?', async function() {
+                        const row = deleteBtn.closest('tr');
+                        row.style.opacity = '0.3';
+                        row.style.pointerEvents = 'none';
 
-                    try {
-                        const response = await fetch(deleteUrl, {
-                            method: 'DELETE',
-                            headers: {
-                                'X-CSRF-TOKEN': token,
-                                'X-Requested-With': 'XMLHttpRequest',
-                                'Accept': 'application/json'
+                        try {
+                            const response = await fetch(deleteUrl, {
+                                method: 'DELETE',
+                                headers: {
+                                    'X-CSRF-TOKEN': token,
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                    'Accept': 'application/json'
+                                }
+                            });
+
+                            if (response.ok) {
+                                window.refreshLaporanTable();
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Terhapus!',
+                                    timer: 1500,
+                                    showConfirmButton: false
+                                });
+                            } else {
+                                row.style.opacity = '1';
+                                row.style.pointerEvents = 'auto';
                             }
-                        });
-
-                        if (response.ok) {
-                        // Refresh tabel menggunakan fungsi global yang ada di laporan.blade.php
-                        if (window.refreshLaporanTable) {
-                            window.refreshLaporanTable();
-                        } else {
-                            window.location.reload();
+                        } catch (error) {
+                            console.error('Delete error:', error);
+                            row.style.opacity = '1';
+                            row.style.pointerEvents = 'auto';
                         }
-                    } else {
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Gagal Menghapus',
-                            text: 'Data laporan gagal dihapus.',
-                            background: '#ffffff',
-                            color: '#0f172a',
-                            iconColor: '#ef4444'
-                        });
-                        row.style.opacity = '1';
-                        row.style.pointerEvents = 'auto';
-                    }
-                } catch (error) {
-                    console.error('Delete error:', error);
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Kesalahan Koneksi',
-                        text: 'Terjadi kesalahan koneksi saat menghapus data.',
-                        background: '#ffffff',
-                        color: '#0f172a',
-                        iconColor: '#ef4444'
                     });
-                    row.style.opacity = '1';
-                    row.style.pointerEvents = 'auto';
-                    }
-                });
+                }
             });
 
             // Handle Add Laporan AJAX
@@ -1624,18 +1697,6 @@
                 } finally {
                     submitBtn.disabled = false;
                     submitBtn.innerHTML = originalBtnHtml;
-                }
-            });
-
-            // Handle Pagination Clicks
-            document.addEventListener('click', function(e) {
-                const paginationLink = e.target.closest('.pagination a');
-                if (paginationLink) {
-                    e.preventDefault();
-                    const url = paginationLink.dataset.ajaxUrl || paginationLink.href;
-                    if (url && url !== 'javascript:void(0)') {
-                        loadLaporanTable(url);
-                    }
                 }
             });
 

@@ -2,8 +2,8 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use App\Models\MasterData;
 
 class MasterDataSeeder extends Seeder
 {
@@ -13,6 +13,9 @@ class MasterDataSeeder extends Seeder
     public function run(): void
     {
         $data = [
+            'kategori' => [
+                'MF', 'HF RUTIN', 'HF NELAYAN'
+            ],
             'stasiun_monitor' => [
                 'MSHF LAMPUNG',
             ],
@@ -28,13 +31,16 @@ class MasterDataSeeder extends Seeder
                 'NR', 'OD', 'OE', 'PL', 'RM', 'RN', 'SA', 'SM', 'SS', 'TC', 
                 'UV', 'UW'
             ],
+            'system_config' => [
+                'kelas_emisi_manual'
+            ],
         ];
 
         foreach ($data as $category => $values) {
             foreach ($values as $value) {
-                \App\Models\MasterData::updateOrCreate(
-                    ['category' => $category, 'value' => $value],
-                    ['is_active' => true]
+                MasterData::updateOrCreate(
+                    ['category' => $category, 'value' => strtoupper($value)],
+                    ['is_active' => ($category === 'system_config' ? false : true)]
                 );
             }
         }

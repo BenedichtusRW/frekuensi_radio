@@ -62,6 +62,7 @@ Route::middleware(['auth', 'no-cache', 'check-active'])->group(function () {
 
             Route::prefix('master-data')->name('master-data.')->group(function () {
                 Route::get('/', [\App\Http\Controllers\MasterDataController::class, 'index'])->name('index');
+                Route::get('/get-config', [\App\Http\Controllers\MasterDataController::class, 'getConfig'])->name('get-config');
                 Route::post('/', [\App\Http\Controllers\MasterDataController::class, 'store'])->name('store');
                 Route::put('/{id}', [\App\Http\Controllers\MasterDataController::class, 'update'])->name('update');
                 Route::delete('/{id}', [\App\Http\Controllers\MasterDataController::class, 'destroy'])->name('destroy');

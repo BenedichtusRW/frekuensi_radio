@@ -28,7 +28,7 @@ class MonitoringController extends Controller
 
         $user = auth()->user();
         $isSuperAdmin = $user->role === 'super_admin';
-        
+
         // --- IMPROVED: GLOBAL SESSION-BASED FILTER ---
         if ($isSuperAdmin) {
             // Priority 1: Request (user sets a new filter)
@@ -39,13 +39,13 @@ class MonitoringController extends Controller
                 } else {
                     session(['global_petugas_filter_id' => $val]);
                 }
-                
+
                 // If not an AJAX/Livewire request, redirect to clean URL
                 if (!$request->ajax() && !$request->headers->has('X-Livewire')) {
                     return redirect()->route('dashboard');
                 }
             }
-            
+
             // Priority 2: Session (read existing filter)
             $userId = session('global_petugas_filter_id');
         } else {
@@ -81,15 +81,15 @@ class MonitoringController extends Controller
 
             return [
                 // Bulan ini
-                'month_label'   => now()->translatedFormat('F Y'),
-                'total_month'   => (int) ($monthlySummary->total ?? 0),
-                'mf_month'      => (int) ($monthlySummary->mf ?? 0),
-                'rutin_month'   => (int) ($monthlySummary->rutin ?? 0),
+                'month_label' => now()->translatedFormat('F Y'),
+                'total_month' => (int) ($monthlySummary->total ?? 0),
+                'mf_month' => (int) ($monthlySummary->mf ?? 0),
+                'rutin_month' => (int) ($monthlySummary->rutin ?? 0),
                 'nelayan_month' => (int) ($monthlySummary->nelayan ?? 0),
                 // All-time (total keseluruhan)
-                'total_all'   => (int) ($allSummary->total ?? 0),
-                'mf_all'      => (int) ($allSummary->mf ?? 0),
-                'rutin_all'   => (int) ($allSummary->rutin ?? 0),
+                'total_all' => (int) ($allSummary->total ?? 0),
+                'mf_all' => (int) ($allSummary->mf ?? 0),
+                'rutin_all' => (int) ($allSummary->rutin ?? 0),
                 'nelayan_all' => (int) ($allSummary->nelayan ?? 0),
             ];
         });
@@ -107,7 +107,7 @@ class MonitoringController extends Controller
         // 3. CACHE BAR CHART 7 HARI (Stacked by Category)
         $barChart = Cache::remember('dashboard_bar_chart' . $cacheSuffix, $cacheDuration, function () use ($userId) {
             $startDate = now()->subDays(6)->startOfDay();
-            $endDate   = now()->endOfDay();
+            $endDate = now()->endOfDay();
 
             // Fetch counts grouped by date and category
             $rows = Monitoring::query()
@@ -120,8 +120,8 @@ class MonitoringController extends Controller
 
             $weekLabels = [];
             $datasets = [
-                'mf'      => [],
-                'rutin'   => [],
+                'mf' => [],
+                'rutin' => [],
                 'nelayan' => []
             ];
 
@@ -129,17 +129,17 @@ class MonitoringController extends Controller
                 $date = now()->subDays($i);
                 $label = $date->format('d M');
                 $weekLabels[] = $label;
-                
+
                 $keyDate = (int) $date->day;
                 $keyMonth = (int) $date->month;
                 $keyYear = (int) $date->year;
 
-                $dayData = $rows->filter(function($r) use ($keyDate, $keyMonth, $keyYear) {
+                $dayData = $rows->filter(function ($r) use ($keyDate, $keyMonth, $keyYear) {
                     return $r->tanggal == $keyDate && $r->bulan == $keyMonth && $r->tahun == $keyYear;
                 });
 
-                $datasets['mf'][]      = (int) ($dayData->where('kategori', 'MF')->first()?->total ?? 0);
-                $datasets['rutin'][]   = (int) ($dayData->where('kategori', 'HF Rutin')->first()?->total ?? 0);
+                $datasets['mf'][] = (int) ($dayData->where('kategori', 'MF')->first()?->total ?? 0);
+                $datasets['rutin'][] = (int) ($dayData->where('kategori', 'HF Rutin')->first()?->total ?? 0);
                 $datasets['nelayan'][] = (int) ($dayData->where('kategori', 'HF Nelayan')->first()?->total ?? 0);
             }
 
@@ -159,26 +159,26 @@ class MonitoringController extends Controller
 
             $monthLabels = [];
             $datasets = [
-                'mf'      => [],
-                'rutin'   => [],
+                'mf' => [],
+                'rutin' => [],
                 'nelayan' => []
             ];
-            $monthNames = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+            $monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
 
             for ($m = 1; $m <= 12; $m++) {
                 $monthLabels[] = $monthNames[$m - 1];
-                
+
                 $monthData = $rows->where('bulan', $m);
-                
-                $datasets['mf'][]      = (int) ($monthData->where('kategori', 'MF')->first()?->total ?? 0);
-                $datasets['rutin'][]   = (int) ($monthData->where('kategori', 'HF Rutin')->first()?->total ?? 0);
+
+                $datasets['mf'][] = (int) ($monthData->where('kategori', 'MF')->first()?->total ?? 0);
+                $datasets['rutin'][] = (int) ($monthData->where('kategori', 'HF Rutin')->first()?->total ?? 0);
                 $datasets['nelayan'][] = (int) ($monthData->where('kategori', 'HF Nelayan')->first()?->total ?? 0);
             }
 
             return [
-                'labels'   => $monthLabels,
+                'labels' => $monthLabels,
                 'datasets' => $datasets,
-                'year'     => $currentYear,
+                'year' => $currentYear,
             ];
         });
 
@@ -197,32 +197,32 @@ class MonitoringController extends Controller
                 ->orderBy('is_active', 'DESC')
                 ->orderBy('name', 'ASC')
                 ->get()
-                ->map(function($u) {
+                ->map(function ($u) {
                     $u->name = $u->is_active ? $u->name : $u->name . ' (Nonaktif)';
                     return $u;
                 });
         }
 
         return view('dashboard', [
-            'summary'            => $summary,
-            'pieChart'           => $pieChart,
-            'barChart'           => $barChart,
-            'monthlyChart'       => $monthlyChart,
-            'recentMonitoring'   => $recentMonitoring,
-            'users'              => $users,
-            'selectedUserId'     => $userId,
+            'summary' => $summary,
+            'pieChart' => $pieChart,
+            'barChart' => $barChart,
+            'monthlyChart' => $monthlyChart,
+            'recentMonitoring' => $recentMonitoring,
+            'users' => $users,
+            'selectedUserId' => $userId,
         ]);
     }
 
     public function settings(Request $request)
     {
         $this->logActivity($request, 'visit_settings', 'Membuka halaman Pengaturan');
-        
+
         $activityLogs = [];
         if (auth()->user()->role === 'super_admin') {
             $activityLogs = ActivityLog::latest()->limit(20)->get();
         }
-        
+
         return view('settings', [
             'activityLogs' => $activityLogs
         ]);
@@ -239,7 +239,7 @@ class MonitoringController extends Controller
 
         $user = Auth::user();
 
-        if (!\Illuminate\Support\Facades\Hash::check($request->password, $user->password)) {
+        if (!Hash::check($request->password, $user->password)) {
             return response()->json(['success' => false, 'message' => 'Password salah.'], 422);
         }
 
@@ -247,7 +247,7 @@ class MonitoringController extends Controller
 
         // Generate a new secret key
         $secretKey = $google2fa->generateSecretKey();
-        
+
         // Temporarily store secret in session for verification step
         session(['2fa_pending_secret' => $secretKey]);
 
@@ -296,7 +296,7 @@ class MonitoringController extends Controller
             $user->save();
 
             session()->forget('2fa_pending_secret');
-            
+
             $this->logActivity($request, 'enable_2fa', 'Mengaktifkan Autentikasi 2 Faktor');
 
             return response()->json(['success' => true]);
@@ -315,7 +315,7 @@ class MonitoringController extends Controller
         ]);
 
         $user = Auth::user();
-        
+
         if (empty($user->google2fa_secret)) {
             return response()->json(['success' => false, 'message' => 'Harap lakukan setup 2FA terlebih dahulu.'], 400);
         }
@@ -327,7 +327,7 @@ class MonitoringController extends Controller
         $this->logActivity($request, 'toggle_2fa', $status . ' Autentikasi 2 Faktor');
 
         $response = response()->json(['success' => true]);
-        
+
         // Jika dimatikan, hapus cookie preferensi login agar kembali ke email/password
         if (!$request->enabled) {
             $response->withCookie(cookie()->forget('login_preference'));
@@ -349,8 +349,8 @@ class MonitoringController extends Controller
         ]);
 
         $user = Auth::user();
-        
-        if (!\Illuminate\Support\Facades\Hash::check($request->password, $user->password)) {
+
+        if (!Hash::check($request->password, $user->password)) {
             return response()->json(['success' => false, 'message' => 'Konfirmasi password salah.'], 422);
         }
 
@@ -369,7 +369,7 @@ class MonitoringController extends Controller
     public function updateSecurity(Request $request)
     {
         $user = Auth::user();
-        
+
         $request->validate([
             'name' => ['required', 'string', 'max:255', 'regex:/^(?!Admin\s*\d*$).+/i'],
             'email' => ['required', 'email', \Illuminate\Validation\Rule::unique('users')->ignore($user->id)],
@@ -405,7 +405,7 @@ class MonitoringController extends Controller
 
         $user->name = $request->name;
         $user->email = $request->email;
-        
+
         // Handle Profile Photo Update
         if ($request->hasFile('profile_photo')) {
             // Delete old photo if exists
@@ -425,7 +425,7 @@ class MonitoringController extends Controller
             $action = 'change_profile';
             $desc = 'Mengubah informasi profil dan email';
         }
-        
+
         $user->save();
 
         $this->logActivity($request, $action, $desc);
@@ -450,7 +450,7 @@ class MonitoringController extends Controller
         $this->logActivity($request, 'visit_laporan', 'Membuka halaman Daftar Laporan');
 
         $isSuperAdmin = auth()->user()->role === 'super_admin';
-        
+
         // --- GLOBAL FILTER SYNC ---
         if ($isSuperAdmin) {
             if ($request->has('user_id')) {
@@ -464,7 +464,7 @@ class MonitoringController extends Controller
         }
 
         $filters = $this->extractMonitoringFilters($request);
-        
+
         // If no user_id in request, try session for Super Admin
         if ($isSuperAdmin && empty($filters['user_id'])) {
             $filters['user_id'] = session('global_petugas_filter_id');
@@ -482,8 +482,10 @@ class MonitoringController extends Controller
 
         $perPage = $this->toNullableInt((string) $request->query('per_page', '10')) ?? 10;
         // Safety cap: Maksimal 50 data per halaman agar browser tidak berat (karena kolom sangat banyak)
-        if ($perPage > 50) $perPage = 50;
-        if ($perPage < 1) $perPage = 10;
+        if ($perPage > 50)
+            $perPage = 50;
+        if ($perPage < 1)
+            $perPage = 10;
 
         $monitorings = $this->monitoringFilteredQuery($filters)
             ->paginate($perPage)
@@ -534,11 +536,16 @@ class MonitoringController extends Controller
 
         // 1. Tambahkan Nama Petugas (Admin)
         $userId = $filters['user_id'] ?? null;
+        $currentUser = auth()->user();
+
         if ($userId && $userId !== 'all' && $userId !== '') {
             $user = \App\Models\User::find($userId);
             $userName = $user ? $user->name : 'User';
-            // Bersihkan nama dari karakter aneh dan ganti spasi jadi underscore
             $safeName = preg_replace('/[^A-Za-z0-9]+/', '_', $userName);
+            $parts[] = trim($safeName, '_');
+        } elseif ($currentUser->role !== 'super_admin') {
+            // Jika bukan super_admin, otomatis pakai nama dia sendiri
+            $safeName = preg_replace('/[^A-Za-z0-9]+/', '_', $currentUser->name);
             $parts[] = trim($safeName, '_');
         } else {
             $parts[] = 'SemuaAdmin';
@@ -666,7 +673,7 @@ class MonitoringController extends Controller
         }
 
         $validated = $this->normalizeNumericFields($validated);
-        
+
         // Jika Super Admin menginput atas nama orang lain
         if (auth()->user()->role === 'super_admin' && $request->filled('user_id')) {
             $validated['user_id'] = $request->input('user_id');
@@ -731,7 +738,7 @@ class MonitoringController extends Controller
             Cache::forget($key . "_all");
             // Clear the legacy non-suffixed keys
             Cache::forget($key);
-            
+
             // If Super Admin is making changes, we might need to clear the filtered user's cache too.
             // But since we clear "_all", the main dashboard will be refreshed anyway.
         }
@@ -844,7 +851,7 @@ class MonitoringController extends Controller
     {
         $monitoring = Monitoring::findOrFail($id);
         $this->authorizeMonitoring($monitoring);
-        
+
         $monitoring->delete();
 
         // CLEAR DASHBOARD CACHE: Force real-time update
@@ -876,7 +883,7 @@ class MonitoringController extends Controller
             $query->where('user_id', auth()->id());
         }
         $query->delete();
-        
+
         $this->clearDashboardCache();
         $this->logActivity($request, 'bulk_delete', 'Menghapus massal ' . count($ids) . ' data laporan');
 
@@ -894,14 +901,14 @@ class MonitoringController extends Controller
         $filters = $this->extractMonitoringFilters($request);
         $filterDesc = $this->formatFilterDescription($filters);
         $query = $this->monitoringFilteredQuery($filters);
-        
+
         $count = $query->count();
         if ($count === 0) {
             return redirect()->back()->with('error', 'Tidak ada data untuk dihapus.');
         }
 
         $query->delete();
-        
+
         $this->clearDashboardCache();
         $this->logActivity($request, 'delete_all', 'Menghapus SEMUA data laporan (' . $count . ' data)' . ($filterDesc ? ' berdasarkan ' . $filterDesc : ''));
 
@@ -920,31 +927,32 @@ class MonitoringController extends Controller
         $tables = DB::select('SHOW TABLES');
         $dbName = config('database.connections.mysql.database');
         $tablesField = 'Tables_in_' . $dbName;
-        
+
         $sqlDump = "-- Database Backup\n";
         $sqlDump .= "-- Generated at: " . now()->toDateTimeString() . "\n\n";
         $sqlDump .= "SET FOREIGN_KEY_CHECKS=0;\n\n";
 
         foreach ($tables as $table) {
             $tableName = $table->$tablesField;
-            
+
             // Generate Create Table
             $createTable = DB::select("SHOW CREATE TABLE `{$tableName}`")[0];
             $sqlDump .= "DROP TABLE IF EXISTS `{$tableName}`;\n";
             $sqlDump .= $createTable->{'Create Table'} . ";\n\n";
-            
+
             // Generate Inserts
             $rows = DB::table($tableName)->get();
             foreach ($rows as $row) {
-                $rowArray = (array)$row;
+                $rowArray = (array) $row;
                 $columns = array_keys($rowArray);
                 $values = array_values($rowArray);
-                
-                $escapedValues = array_map(function($val) {
-                    if ($val === null) return "NULL";
-                    return "'" . addslashes((string)$val) . "'";
+
+                $escapedValues = array_map(function ($val) {
+                    if ($val === null)
+                        return "NULL";
+                    return "'" . addslashes((string) $val) . "'";
                 }, $values);
-                
+
                 $sqlDump .= "INSERT INTO `{$tableName}` (`" . implode("`, `", $columns) . "`) VALUES (" . implode(", ", $escapedValues) . ");\n";
             }
             $sqlDump .= "\n";
@@ -961,14 +969,23 @@ class MonitoringController extends Controller
 
     private function buildDropdownOptions(): array
     {
-        return Cache::remember('laporan_dropdown_options', now()->addHours(24), function() {
+        return Cache::remember('laporan_dropdown_options', now()->addMinutes(30), function () {
             $masterData = \App\Models\MasterData::where('is_active', true)->get()->groupBy('category');
 
+            $config = \App\Models\MasterData::where('category', 'system_config')
+                                        ->where('value', 'kelas_emisi_manual')
+                                        ->first();
+
             return [
+                'kategori' => $masterData->has('kategori') ? $masterData['kategori']->pluck('value')->toArray() : ['MF', 'HF Rutin', 'HF Nelayan'],
                 'kelas_stasiun' => $masterData->has('kelas_stasiun') ? $masterData['kelas_stasiun']->pluck('value')->toArray() : ['AL', 'AM', 'AT', 'BC', 'BT', 'FA', 'FB', 'FC', 'FD', 'FG', 'FL', 'FP', 'FX', 'LR', 'MA', 'ML', 'MO', 'MR', 'MS', 'NL', 'NR', 'OD', 'OE', 'PL', 'RM', 'RN', 'SA', 'SM', 'SS', 'TC', 'UV', 'UW'],
                 'stasiun_monitor' => $masterData->has('stasiun_monitor') ? $masterData['stasiun_monitor']->pluck('value')->toArray() : ['MSHF LAMPUNG'],
                 'administrasi_termonitor' => $masterData->has('administrasi_termonitor') ? $masterData['administrasi_termonitor']->pluck('value')->toArray() : ['INS'],
-                'kode_negara' => $masterData->has('kode_negara') ? $masterData['kode_negara']->pluck('value')->toArray() : ['INDONESIA (INS)']
+                'kode_negara' => $masterData->has('kode_negara') ? $masterData['kode_negara']->pluck('value')->toArray() : ['INDONESIA (INS)'],
+                'kelas_emisi' => $masterData->has('kelas_emisi') ? $masterData['kelas_emisi']->pluck('value')->toArray() : [],
+                'config' => [
+                    'kelas_emisi_manual' => $config ? (bool)$config->is_active : false
+                ]
             ];
         });
     }
@@ -982,8 +999,8 @@ class MonitoringController extends Controller
             ->distinct()
             ->orderBy($column)
             ->pluck($column)
-            ->map(fn ($value) => trim((string) $value))
-            ->filter(fn (string $value) => $value !== '')
+            ->map(fn($value) => trim((string) $value))
+            ->filter(fn(string $value) => $value !== '')
             ->unique()
             ->values()
             ->all();
@@ -994,20 +1011,23 @@ class MonitoringController extends Controller
     private function prioritizeDropdownValue(array $values, string $priority): array
     {
         $normalized = array_values(array_unique(array_filter(array_map(
-            fn ($value) => trim((string) $value),
+            fn($value) => trim((string) $value),
             $values
-        ), fn ($value) => $value !== '')));
+        ), fn($value) => $value !== '')));
 
         $priorityExists = in_array($priority, $normalized, true);
-        $rest = array_values(array_filter($normalized, fn ($value) => $value !== $priority));
+        $rest = array_values(array_filter($normalized, fn($value) => $value !== $priority));
 
         return $priorityExists ? array_merge([$priority], $rest) : $normalized;
     }
 
     private function monitoringValidationRules(): array
     {
+        $categories = \App\Models\MasterData::where('category', 'kategori')->where('is_active', true)->pluck('value')->toArray();
+        $categoriesList = !empty($categories) ? implode(',', $categories) : 'MF,HF Rutin,HF Nelayan';
+
         return [
-            'kategori' => ['required', 'string', 'in:MF,HF Rutin,HF Nelayan'],
+            'kategori' => ['required', 'string', 'in:' . $categoriesList],
             'kode_negara' => ['nullable', 'string', 'max:10'],
             'stasiun_monitor' => ['nullable', 'string', 'max:255'],
             'frekuensi_khz' => ['nullable', 'numeric'],
@@ -1200,10 +1220,10 @@ class MonitoringController extends Controller
         }
 
         return $query
-            ->when($filters['kategori'] ?? null, fn ($query, $kategori) => $query->where('kategori', $kategori))
-            ->when($filters['bulan'] ?? null, fn ($query, $bulan) => $query->where('bulan', $bulan))
-            ->when($filters['tanggal'] ?? null, fn ($query, $tanggal) => $query->where('tanggal', $tanggal))
-            ->when($filters['tahun'] ?? null, fn ($query, $tahun) => $query->where('tahun', $tahun))
+            ->when($filters['kategori'] ?? null, fn($query, $kategori) => $query->where('kategori', $kategori))
+            ->when($filters['bulan'] ?? null, fn($query, $bulan) => $query->where('bulan', $bulan))
+            ->when($filters['tanggal'] ?? null, fn($query, $tanggal) => $query->where('tanggal', $tanggal))
+            ->when($filters['tahun'] ?? null, fn($query, $tahun) => $query->where('tahun', $tahun))
             // OPTIMIZED: Simplified search query (was: nested WHERE with OR clauses)
             // Now: Simple LIKE search on selected column - 10x faster, index-friendly
             ->when(($filters['q'] ?? '') !== '', function ($query) use ($filters) {

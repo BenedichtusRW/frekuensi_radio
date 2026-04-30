@@ -1,5 +1,5 @@
-# 🛰️ Portal Monitoring Balmon Lampung
-**Sistem Administrasi Spektrum Frekuensi Radio Kelas II Lampung**
+# 🛰️ Portal Monitoring 
+**Sistem Pencatatan Spektrum Frekuensi Radio**
 
 ---
 
@@ -70,6 +70,32 @@ php artisan migrate --seed
 php artisan storage:link
 ```
 
+---
+
+## 🚀 Panduan Deployment (Produksi)
+*Jika ingin Ikuti langkah ini boleh, saat di server.*
+
+1. **Instalasi Dependensi**:
+   ```bash
+   composer install --optimize-autoloader --no-dev
+   ```
+2. **Migrasi Database**:
+   ```bash
+   php artisan migrate --force
+   ```
+3. **Hubungkan Media (PENTING)**:
+   ```bash
+   php artisan storage:link
+   ```
+4. **Optimasi Performa (WAJIB di Server)**:
+   ```bash
+   php artisan config:cache
+   php artisan route:cache
+   php artisan view:cache
+   ```
+
+---
+
 **Detail Login Default (Setelah Seeding):**
 *   **Super Admin**: `adminsuper@balmon.go.id` | Pass: `BalmonLampung25`
 *   **Petugas Admin**: `adminaja@balmon.go.id` | Pass: `BalmonLampung23`
@@ -91,8 +117,3 @@ Akses di: `http://127.0.0.1:8000`
 php artisan queue:work
 ```
 *Gunakan terminal ini agar fitur pembersihan database otomatis (Auto-Cleanup) berjalan.*
-
----
-
-**Monitoring Dev Team**  
-*Sistem ini dikembangkan secara profesional untuk Balmon Lampung.*
